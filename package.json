@@ -1,0 +1,24 @@
+{
+  "name": "hecy-blog",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @hecy/site --filter @hecy/admin dev",
+    "dev:site": "pnpm --filter @hecy/site dev",
+    "dev:admin": "pnpm --filter @hecy/admin dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:push": "pnpm --filter @hecy/admin db:push",
+    "db:seed": "pnpm --filter @hecy/admin db:seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hecy-blog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hecy
+      POSTGRES_PASSWORD: hecy
+      POSTGRES_DB: hecy_blog
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - hecy_blog_postgres:/var/lib/postgresql/data
+
+volumes:
+  hecy_blog_postgres:
