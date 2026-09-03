@@ -1,0 +1,141 @@
+name: Hecy Blog · 静态前台构建
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/site/**"
+      - "packages/content/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+  repository_dispatch:
+    types: [hecy-publish]
+  workflow_dispatch:
+
+concurrency:
+  group: site-production
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+      - name: 配置 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - name: 配置 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+      - name: 回报构建开始
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        env:
+          ADMIN_ORIGIN: ${{ secrets.ADMIN_ORIGIN }}
+          BUILD_WEBHOOK_SECRET: ${{ secrets.BUILD_WEBHOOK_SECRET }}
+          BUILD_ID: ${{ github.event.client_payload.buildId }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [[ -z "$ADMIN_ORIGIN" || -z "$BUILD_WEBHOOK_SECRET" || -z "$BUILD_ID" ]]; then
+            echo "未配置构建回调，跳过状态同步。"
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 15 \
+            -X POST "${ADMIN_ORIGIN%/}/api/internal/builds/${BUILD_ID}" \
+            -H "Content-Type: application/json" \
+            -H "x-build-secret: ${BUILD_WEBHOOK_SECRET}" \
+            --data "{\"status\":\"running\",\"commitSha\":\"${COMMIT_SHA}\"}" || echo "构建开始回调失败，继续构建。"
+      - name: 构建静态前台
+        env:
+          CONTENT_API_URL: ${{ secrets.CONTENT_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          ALLOW_SEED_FALLBACK: ${{ secrets.ALLOW_SEED_FALLBACK }}
+        run: pnpm --filter @hecy/site build
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: hecy-site
+          path: apps/site/out
+          if-no-files-found: error
+      - name: 回报构建结果
+        if: always()
+        env:
+          ADMIN_ORIGIN: ${{ secrets.ADMIN_ORIGIN }}
+          BUILD_WEBHOOK_SECRET: ${{ secrets.BUILD_WEBHOOK_SECRET }}
+          BUILD_ID: ${{ github.event.client_payload.buildId }}
+          JOB_STATUS: ${{ job.status }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [[ -z "$ADMIN_ORIGIN" || -z "$BUILD_WEBHOOK_SECRET" || -z "$BUILD_ID" ]]; then
+            exit 0
+          fi
+          status="failed"
+          error_summary="GitHub Actions 构建失败。"
+          if [[ "$JOB_STATUS" == "success" ]]; then
+            status="success"
+            error_summary=""
+          fi
+          payload=$(printf '{"status":"%s","errorSummary":"%s","commitSha":"%s"}' "$status" "$error_summary" "$COMMIT_SHA")
+          curl --fail-with-body --silent --show-error --max-time 15 \
+            -X POST "${ADMIN_ORIGIN%/}/api/internal/builds/${BUILD_ID}" \
+            -H "Content-Type: application/json" \
+            -H "x-build-secret: ${BUILD_WEBHOOK_SECRET}" \
+            --data "$payload" || echo "构建状态回调失败。"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查部署配置
+        id: deploy-config
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          if [[ -n "$DEPLOY_HOST" && -n "$DEPLOY_USER" && -n "$DEPLOY_PATH" && -n "$DEPLOY_SSH_KEY" && -n "$DEPLOY_KNOWN_HOSTS" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "未配置部署凭据，保留构建产物。"
+          fi
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        if: steps.deploy-config.outputs.enabled == 'true'
+        with:
+          name: hecy-site
+          path: out
+      - name: 配置 SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        if: steps.deploy-config.outputs.enabled == 'true'
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: 配置服务器指纹
+        if: steps.deploy-config.outputs.enabled == 'true'
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+      - name: 上传静态文件
+        if: steps.deploy-config.outputs.enabled == 'true'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          rsync -az --delete out/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
