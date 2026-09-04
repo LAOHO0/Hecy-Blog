@@ -8,11 +8,18 @@ export const metadata: Metadata = {
 };
 
 export default async function ProjectsPage() {
+  const items = (await getPublishedContent("project")).sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      Date.parse(b.publishedAt || b.createdAt) -
+        Date.parse(a.publishedAt || a.createdAt),
+  );
+
   return (
     <ShowcaseIndex
-      items={await getPublishedContent("project")}
+      intro="记录从想法、协作到上线的完整过程"
+      items={items}
       title="项目"
-      intro="记录从想法、协作到上线的完整过程。"
       type="project"
     />
   );

@@ -8,11 +8,18 @@ export const metadata: Metadata = {
 };
 
 export default async function ProductsPage() {
+  const items = (await getPublishedContent("product")).sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      Date.parse(b.publishedAt || b.createdAt) -
+        Date.parse(a.publishedAt || a.createdAt),
+  );
+
   return (
     <ShowcaseIndex
-      items={await getPublishedContent("product")}
+      intro="正在做的东西，和一些已经能用的东西"
+      items={items}
       title="产品"
-      intro="把问题做成可以被使用、验证和持续迭代的产品。"
       type="product"
     />
   );

@@ -271,9 +271,9 @@ export const defaultSettings: SiteSettings = {
   socialLinks: [{ label: "GitHub", url: "https://github.com/LAOHO0" }],
   navigation: [
     { label: "首页", href: "/" },
-    { label: "文章", href: "/blog" },
+    { label: "博客", href: "/blog" },
     { label: "产品", href: "/products" },
-    { label: "项目", href: "/projects" },
+    { label: "关于", href: "/#about" },
   ],
   footerText: "© 2026 Hecy Blog",
 };

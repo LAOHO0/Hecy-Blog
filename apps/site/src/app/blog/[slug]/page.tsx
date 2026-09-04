@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeftIcon, ArrowUpRightIcon } from "@/components/icons";
 import { MarkdownContent } from "@/components/markdown-content";
+import { SiteAvatar } from "@/components/site-avatar";
 import { StaticRedirect } from "@/components/static-redirect";
 import {
   getPublishedContent,
   getPublishedRedirects,
   getPublishedRoute,
 } from "@/lib/content";
+import { formatDisplayDate } from "@/lib/format";
 
 export async function generateStaticParams() {
-  const posts = await getPublishedContent("article");
-  const redirects = await getPublishedRedirects("article");
+  const [posts, redirects] = await Promise.all([
+    getPublishedContent("article"),
+    getPublishedRedirects("article"),
+  ]);
   return [
     ...posts.map((post) => ({ slug: post.slug })),
     ...redirects.map((redirect) => ({ slug: redirect.fromSlug })),
@@ -59,28 +65,48 @@ export default async function BlogPostPage({
   }
   const post = route.item;
   if (!post) notFound();
+
   return (
     <article className="article-page">
-      <div className="eyebrow">文章 · {post.lang}</div>
-      <h1>{post.title}</h1>
-      <p className="article-excerpt">{post.excerpt}</p>
+      <Link className="article-back" href="/blog">
+        <ArrowLeftIcon />
+        返回博客
+      </Link>
+      <header className="article-header">
+        <div className="article-kicker">文章 · {post.lang}</div>
+        <h1 className="article-title">{post.title}</h1>
+        <p className="article-excerpt">{post.excerpt}</p>
+        <div className="article-meta">
+          <div className="meta-badge">
+            <SiteAvatar className="article-avatar" />
+            Hecy
+          </div>
+          <time
+            className="meta-badge"
+            dateTime={post.publishedAt || post.createdAt}
+          >
+            {formatDisplayDate(post.publishedAt || post.createdAt)}
+          </time>
+          {post.tags.map((tag) => (
+            <span className="meta-badge" key={tag}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      </header>
       {post.coverUrl ? (
-        // biome-ignore lint/performance/noImgElement: content authors may host images on arbitrary approved HTTP(S) origins.
+        // biome-ignore lint/performance/noImgElement: content authors may host images on approved remote origins.
         <img alt="" className="article-cover" src={post.coverUrl} />
       ) : null}
-      <div className="article-meta">
-        <span>
-          {new Date(post.publishedAt || post.createdAt).toLocaleDateString(
-            "zh-CN",
-          )}
-        </span>
-        {post.tags.map((tag) => (
-          <span className="tag" key={tag}>
-            {tag}
-          </span>
-        ))}
-      </div>
       <MarkdownContent source={post.body} />
+      <footer className="article-footer">
+        <Link className="article-back article-back-next" href="/blog">
+          <span> &gt; CD ../</span>
+          <span>
+            BLOG INDEX <ArrowUpRightIcon />
+          </span>
+        </Link>
+      </footer>
     </article>
   );
 }
