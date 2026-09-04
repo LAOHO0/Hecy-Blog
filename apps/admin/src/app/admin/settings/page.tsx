@@ -14,7 +14,8 @@ export default async function SettingsPage() {
           <div className="eyebrow">站点配置</div>
           <h1 className="page-title">设置</h1>
           <p className="page-subtitle">
-            管理首页标题、简介、导航、社交链接和页脚信息。
+            管理基础信息、首页“关于我 / 技能 /
+            最近动态”版块、导航、社交链接和页脚，保存后自动触发前台构建。
           </p>
         </div>
       </section>

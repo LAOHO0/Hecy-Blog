@@ -12,6 +12,7 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./seed": "./src/seed.ts",
+    "./settings": "./src/settings.ts",
     "./types": "./src/types.ts",
     "./validation": "./src/validation.ts",
     "./markdown": "./src/markdown.ts"

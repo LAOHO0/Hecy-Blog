@@ -17,8 +17,13 @@ export async function PATCH(request: Request) {
   let settings: SiteSettings;
   try {
     settings = parseSettings(await request.json());
-  } catch {
-    return NextResponse.json({ error: "设置格式不正确。" }, { status: 400 });
+  } catch (error) {
+    // parseSettings 抛出的中文消息可以直接展示给用户。
+    const message =
+      error instanceof Error && error.message !== "INVALID"
+        ? error.message
+        : "设置格式不正确。";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
   try {
     const saved = await updateSettings(settings);

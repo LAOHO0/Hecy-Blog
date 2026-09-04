@@ -1,41 +1,134 @@
 import {
+  SiAnthropic,
+  SiAnthropicHex,
+  SiAstro,
+  SiAstroHex,
+  SiBilibili,
+  SiBilibiliHex,
   SiBun,
   SiBunHex,
+  SiClaude,
+  SiClaudeHex,
+  SiCloudflare,
+  SiCloudflareHex,
+  SiCplusplus,
+  SiCplusplusHex,
+  SiCursor,
+  SiCursorHex,
+  SiDart,
+  SiDartHex,
+  SiDeno,
+  SiDenoHex,
   SiDocker,
   SiDockerHex,
+  SiElectron,
+  SiElectronHex,
+  SiFigma,
+  SiFigmaHex,
+  SiFlutter,
+  SiFlutterHex,
   SiGit,
   SiGitHex,
+  SiGithub,
+  SiGithubHex,
+  SiGitlab,
+  SiGitlabHex,
+  SiGo,
+  SiGoHex,
   SiGooglechrome,
   SiGooglechromeHex,
+  SiGooglegemini,
+  SiGooglegeminiHex,
+  SiGraphql,
+  SiGraphqlHex,
+  SiHuggingface,
+  SiHuggingfaceHex,
+  SiKotlin,
+  SiKotlinHex,
+  SiKubernetes,
+  SiKubernetesHex,
+  SiLangchain,
+  SiLangchainHex,
+  SiLinux,
+  SiLinuxHex,
+  SiMarkdown,
+  SiMarkdownHex,
   SiMeilisearch,
   SiMeilisearchHex,
+  SiMongodb,
+  SiMongodbHex,
+  SiMysql,
+  SiMysqlHex,
   SiNextdotjs,
+  SiNginx,
+  SiNginxHex,
   SiNodedotjs,
   SiNodedotjsHex,
+  SiNotion,
+  SiNotionHex,
+  SiNpm,
+  SiNpmHex,
+  SiNuxt,
+  SiNuxtHex,
+  SiObsidian,
+  SiObsidianHex,
+  SiOllama,
+  SiOllamaHex,
+  SiPerplexity,
+  SiPerplexityHex,
+  SiPhp,
+  SiPhpHex,
+  SiPnpm,
+  SiPnpmHex,
   SiPostgresql,
   SiPostgresqlHex,
   SiPython,
   SiPythonHex,
+  SiPytorch,
+  SiPytorchHex,
   SiRaycast,
   SiRaycastHex,
   SiReact,
   SiReactHex,
+  SiRedis,
+  SiRedisHex,
+  SiRuby,
+  SiRubyHex,
+  SiRust,
+  SiRustHex,
+  SiSupabase,
+  SiSupabaseHex,
+  SiSvelte,
+  SiSvelteHex,
+  SiSwift,
+  SiSwiftHex,
   SiTailwindcss,
   SiTailwindcssHex,
   SiTampermonkey,
   SiTampermonkeyHex,
   SiTanstack,
   SiTanstackHex,
+  SiTauri,
+  SiTauriHex,
   SiTiktok,
   SiTiktokHex,
   SiTypescript,
   SiTypescriptHex,
+  SiVercel,
+  SiVercelHex,
   SiVite,
   SiViteHex,
+  SiVitepress,
+  SiVitepressHex,
   SiVuedotjs,
   SiVuedotjsHex,
+  SiWechat,
+  SiWechatHex,
+  SiZhihu,
+  SiZhihuHex,
 } from "@icons-pack/react-simple-icons";
 import {
+  RiCodeBoxLine,
   RiImageEditLine,
   RiRadarLine,
   RiSearchLine,
@@ -236,10 +329,59 @@ export type BrandName =
   | "Python"
   | "Raycast"
   | "Chrome"
-  | "TikTok";
+  | "TikTok"
+  | "Astro"
+  | "Svelte"
+  | "Nuxt"
+  | "VitePress"
+  | "Deno"
+  | "Tailwind CSS"
+  | "Electron"
+  | "Tauri"
+  | "Claude"
+  | "Anthropic"
+  | "Cursor"
+  | "Google Gemini"
+  | "Perplexity"
+  | "Ollama"
+  | "Hugging Face"
+  | "LangChain"
+  | "PyTorch"
+  | "Rust"
+  | "Go"
+  | "Kotlin"
+  | "Swift"
+  | "Dart"
+  | "Flutter"
+  | "PHP"
+  | "Ruby"
+  | "C++"
+  | "Git"
+  | "GitHub"
+  | "GitLab"
+  | "Kubernetes"
+  | "Vercel"
+  | "Cloudflare"
+  | "Nginx"
+  | "Linux"
+  | "npm"
+  | "pnpm"
+  | "MySQL"
+  | "Redis"
+  | "MongoDB"
+  | "Supabase"
+  | "GraphQL"
+  | "Figma"
+  | "Notion"
+  | "Obsidian"
+  | "Markdown"
+  | "Bilibili"
+  | "知乎"
+  | "微信";
 
 type BrandIconProps = {
-  name: BrandName;
+  /** 后台设置里的技能图标名，支持任意字符串，未知名称回退通用图标。 */
+  name: BrandName | (string & {});
   size?: number | string;
   color?: string;
   className?: string;
@@ -283,7 +425,104 @@ export function BrandIcon({
       return <SiGooglechrome {...common} color={color ?? SiGooglechromeHex} />;
     case "TikTok":
       return <SiTiktok {...common} color={color ?? SiTiktokHex} />;
+    case "Astro":
+      return <SiAstro {...common} color={color ?? SiAstroHex} />;
+    case "Svelte":
+      return <SiSvelte {...common} color={color ?? SiSvelteHex} />;
+    case "Nuxt":
+      return <SiNuxt {...common} color={color ?? SiNuxtHex} />;
+    case "VitePress":
+      return <SiVitepress {...common} color={color ?? SiVitepressHex} />;
+    case "Deno":
+      return <SiDeno {...common} color={color ?? SiDenoHex} />;
+    case "Tailwind CSS":
+      return <SiTailwindcss {...common} color={color ?? SiTailwindcssHex} />;
+    case "Electron":
+      return <SiElectron {...common} color={color ?? SiElectronHex} />;
+    case "Tauri":
+      return <SiTauri {...common} color={color ?? SiTauriHex} />;
+    case "Claude":
+      return <SiClaude {...common} color={color ?? SiClaudeHex} />;
+    case "Anthropic":
+      return <SiAnthropic {...common} color={color ?? SiAnthropicHex} />;
+    case "Cursor":
+      return <SiCursor {...common} color={color ?? SiCursorHex} />;
+    case "Google Gemini":
+      return <SiGooglegemini {...common} color={color ?? SiGooglegeminiHex} />;
+    case "Perplexity":
+      return <SiPerplexity {...common} color={color ?? SiPerplexityHex} />;
+    case "Ollama":
+      return <SiOllama {...common} color={color ?? SiOllamaHex} />;
+    case "Hugging Face":
+      return <SiHuggingface {...common} color={color ?? SiHuggingfaceHex} />;
+    case "LangChain":
+      return <SiLangchain {...common} color={color ?? SiLangchainHex} />;
+    case "PyTorch":
+      return <SiPytorch {...common} color={color ?? SiPytorchHex} />;
+    case "Rust":
+      return <SiRust {...common} color={color ?? SiRustHex} />;
+    case "Go":
+      return <SiGo {...common} color={color ?? SiGoHex} />;
+    case "Kotlin":
+      return <SiKotlin {...common} color={color ?? SiKotlinHex} />;
+    case "Swift":
+      return <SiSwift {...common} color={color ?? SiSwiftHex} />;
+    case "Dart":
+      return <SiDart {...common} color={color ?? SiDartHex} />;
+    case "Flutter":
+      return <SiFlutter {...common} color={color ?? SiFlutterHex} />;
+    case "PHP":
+      return <SiPhp {...common} color={color ?? SiPhpHex} />;
+    case "Ruby":
+      return <SiRuby {...common} color={color ?? SiRubyHex} />;
+    case "C++":
+      return <SiCplusplus {...common} color={color ?? SiCplusplusHex} />;
+    case "Git":
+      return <SiGit {...common} color={color ?? SiGitHex} />;
+    case "GitHub":
+      return <SiGithub {...common} color={color ?? SiGithubHex} />;
+    case "GitLab":
+      return <SiGitlab {...common} color={color ?? SiGitlabHex} />;
+    case "Kubernetes":
+      return <SiKubernetes {...common} color={color ?? SiKubernetesHex} />;
+    case "Vercel":
+      return <SiVercel {...common} color={color ?? SiVercelHex} />;
+    case "Cloudflare":
+      return <SiCloudflare {...common} color={color ?? SiCloudflareHex} />;
+    case "Nginx":
+      return <SiNginx {...common} color={color ?? SiNginxHex} />;
+    case "Linux":
+      return <SiLinux {...common} color={color ?? SiLinuxHex} />;
+    case "npm":
+      return <SiNpm {...common} color={color ?? SiNpmHex} />;
+    case "pnpm":
+      return <SiPnpm {...common} color={color ?? SiPnpmHex} />;
+    case "MySQL":
+      return <SiMysql {...common} color={color ?? SiMysqlHex} />;
+    case "Redis":
+      return <SiRedis {...common} color={color ?? SiRedisHex} />;
+    case "MongoDB":
+      return <SiMongodb {...common} color={color ?? SiMongodbHex} />;
+    case "Supabase":
+      return <SiSupabase {...common} color={color ?? SiSupabaseHex} />;
+    case "GraphQL":
+      return <SiGraphql {...common} color={color ?? SiGraphqlHex} />;
+    case "Figma":
+      return <SiFigma {...common} color={color ?? SiFigmaHex} />;
+    case "Notion":
+      return <SiNotion {...common} color={color ?? SiNotionHex} />;
+    case "Obsidian":
+      return <SiObsidian {...common} color={color ?? SiObsidianHex} />;
+    case "Markdown":
+      return <SiMarkdown {...common} color={color ?? SiMarkdownHex} />;
+    case "Bilibili":
+      return <SiBilibili {...common} color={color ?? SiBilibiliHex} />;
+    case "知乎":
+      return <SiZhihu {...common} color={color ?? SiZhihuHex} />;
+    case "微信":
+      return <SiWechat {...common} color={color ?? SiWechatHex} />;
   }
+  return <RiCodeBoxLine {...common} />;
 }
 
 export type ProductIconName =

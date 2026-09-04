@@ -19,6 +19,17 @@ export function ContentTable({ records }: { records: ContentRecord[] }) {
   const [status, setStatus] = useState<"all" | ContentRecord["status"]>("all");
   const [pending, startTransition] = useTransition();
 
+  const counts = useMemo(() => {
+    const map: Record<typeof type, number> = {
+      all: records.length,
+      article: 0,
+      product: 0,
+      project: 0,
+    };
+    for (const item of records) map[item.type] += 1;
+    return map;
+  }, [records]);
+
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return records.filter((item) => {
@@ -45,6 +56,22 @@ export function ContentTable({ records }: { records: ContentRecord[] }) {
 
   return (
     <div>
+      <div className="settings-tabs content-tabs">
+        {(["all", "article", "product", "project"] as const).map((key) => (
+          <button
+            aria-pressed={type === key}
+            className={`settings-tab${type === key ? " active" : ""}`}
+            key={key}
+            onClick={() => setType(key)}
+            type="button"
+          >
+            <span className="tab-label">
+              {key === "all" ? "全部" : typeLabels[key]}
+            </span>
+            <span className="tab-hint">{counts[key]} 条</span>
+          </button>
+        ))}
+      </div>
       <div className="filter-bar">
         <label className="search filter-search">
           <Icon name="search" />
@@ -55,17 +82,6 @@ export function ContentTable({ records }: { records: ContentRecord[] }) {
             value={query}
           />
         </label>
-        <select
-          aria-label="按类型筛选"
-          className="select compact"
-          onChange={(event) => setType(event.target.value as typeof type)}
-          value={type}
-        >
-          <option value="all">全部类型</option>
-          <option value="article">文章</option>
-          <option value="product">产品</option>
-          <option value="project">项目</option>
-        </select>
         <select
           aria-label="按状态筛选"
           className="select compact"

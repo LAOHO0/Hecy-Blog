@@ -83,6 +83,27 @@ export type MediaAsset = {
   createdAt: string;
 };
 
+export type HomepageSkill = {
+  name: string;
+  icon: string;
+};
+
+export type HomepageNowItem = {
+  label: string;
+  content: string;
+  link?: string;
+};
+
+export type HomepageSettings = {
+  greeting: string;
+  headline: string;
+  role: string;
+  location: string;
+  nowTitle: string;
+  skills: HomepageSkill[];
+  nowItems: HomepageNowItem[];
+};
+
 export type SiteSettings = {
   title: string;
   tagline: string;
@@ -91,4 +112,5 @@ export type SiteSettings = {
   socialLinks: { label: string; url: string }[];
   navigation: { label: string; href: string }[];
   footerText: string;
+  homepage: HomepageSettings;
 };

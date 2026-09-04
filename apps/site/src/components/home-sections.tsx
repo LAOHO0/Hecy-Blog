@@ -1,4 +1,9 @@
-import type { ContentRecord, SiteSettings } from "@hecy/content/types";
+import { LATEST_PRODUCT_LINK } from "@hecy/content/settings";
+import type {
+  ContentRecord,
+  HomepageNowItem,
+  SiteSettings,
+} from "@hecy/content/types";
 import Link from "next/link";
 import {
   ArrowUpRightIcon,
@@ -15,17 +20,21 @@ type HomeSectionsProps = {
   products: ContentRecord[];
 };
 
-const SKILLS = [
-  ["Vue", "vue"],
-  ["Vite", "vite"],
-  ["React", "react"],
-  ["Next.js", "next"],
-  ["TypeScript", "ts"],
-  ["Bun", "bun"],
-  ["Node.js", "node"],
-  ["Docker", "docker"],
-  ["Python", "python"],
-] as const;
+// 图标名 → 配色 class，前台 globals.css 中定义对应颜色。
+const SKILL_TONES: Record<string, string> = {
+  Vue: "vue",
+  Vite: "vite",
+  React: "react",
+  "Next.js": "next",
+  TypeScript: "ts",
+  Bun: "bun",
+  "Node.js": "node",
+  Docker: "docker",
+  Python: "python",
+  Raycast: "raycast",
+  Chrome: "chrome",
+  TikTok: "tiktok",
+};
 
 function formatDate(value?: string) {
   const date = value ? new Date(value) : new Date();
@@ -35,6 +44,72 @@ function formatDate(value?: string) {
       index === 0 ? String(part) : String(part).padStart(2, "0"),
     )
     .join(".");
+}
+
+function safeNowLink(link: string | undefined) {
+  if (!link) return undefined;
+  if (link === LATEST_PRODUCT_LINK) return link;
+  if (link.startsWith("/") || link.startsWith("#")) {
+    return link.startsWith("//") ? undefined : link;
+  }
+  try {
+    return ["http:", "https:"].includes(new URL(link).protocol)
+      ? link
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 图标值为 http(s) 或站内路径时按自定义图片渲染。 */
+function isImageIcon(icon: string) {
+  if (/^https?:\/\//.test(icon)) return true;
+  if (icon.startsWith("/")) return !icon.startsWith("//");
+  try {
+    return ["http:", "https:"].includes(new URL(icon).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function NowItemCopy({
+  item,
+  product,
+}: {
+  item: HomepageNowItem;
+  product?: ContentRecord;
+}) {
+  const link = safeNowLink(item.link);
+  if (link === LATEST_PRODUCT_LINK) {
+    return (
+      <p className="timeline-copy">
+        {item.content}
+        {product ? (
+          <Link className="inline-link" href={`/products/${product.slug}`}>
+            {product.title} <ArrowUpRightIcon />
+          </Link>
+        ) : (
+          "内容系统"
+        )}
+      </p>
+    );
+  }
+  if (link) {
+    const external = link.startsWith("http");
+    return (
+      <p className="timeline-copy">
+        <a
+          className="inline-link"
+          href={link}
+          rel={external ? "noreferrer noopener" : undefined}
+          target={external ? "_blank" : undefined}
+        >
+          {item.content} <ArrowUpRightIcon />
+        </a>
+      </p>
+    );
+  }
+  return <p className="timeline-copy">{item.content}</p>;
 }
 
 function ProductMark({ item }: { item: ContentRecord }) {
@@ -79,17 +154,18 @@ export function HomeSections({
   products,
 }: HomeSectionsProps) {
   const firstProduct = products[0];
+  const home = settings.homepage;
 
   return (
     <div className="home-page">
       <section className="home-hero" aria-labelledby="home-title">
-        <p className="home-greeting">
-          你好，这里是 <strong>Hecy</strong> / <strong>Hecy Blog</strong>
-        </p>
+        {home.greeting ? (
+          <p className="home-greeting">{home.greeting}</p>
+        ) : null}
         <SiteAvatar src={settings.avatarUrl || "/imgs/avatar.webp"} />
         <h1 className="home-title" id="home-title">
           <span className="home-title-reveal">
-            只有你也想见我的时候，我们的相遇才有意义。
+            {home.headline || settings.title}
           </span>
         </h1>
         <div className="home-actions">
@@ -111,23 +187,40 @@ export function HomeSections({
       >
         <div className="about-left">
           <p className="section-kicker">关于我</p>
-          <div className="about-profile">
-            <span className="about-profile-role">前端工程师</span>
-            <span className="about-profile-place">HangZhou</span>
-          </div>
-          <div className="skill-heading">
-            <span>Skills</span>
-          </div>
-          <div className="skill-list">
-            {SKILLS.map(([name, tone]) => (
-              <span className="skill-badge" key={name}>
-                <span aria-hidden="true" className={`skill-icon ${tone}`}>
-                  <BrandIcon name={name} />
-                </span>
-                <span>{name}</span>
-              </span>
-            ))}
-          </div>
+          {home.role || home.location ? (
+            <div className="about-profile">
+              {home.role ? (
+                <span className="about-profile-role">{home.role}</span>
+              ) : null}
+              {home.location ? (
+                <span className="about-profile-place">{home.location}</span>
+              ) : null}
+            </div>
+          ) : null}
+          {home.skills.length ? (
+            <>
+              <div className="skill-heading">
+                <span>Skills</span>
+              </div>
+              <div className="skill-list">
+                {home.skills.map((skill) => (
+                  <span className="skill-badge" key={skill.name}>
+                    <span
+                      aria-hidden="true"
+                      className={`skill-icon ${SKILL_TONES[skill.icon] ?? "generic"}`}
+                    >
+                      {isImageIcon(skill.icon) ? (
+                        <img alt="" className="skill-img" src={skill.icon} />
+                      ) : (
+                        <BrandIcon name={skill.icon} />
+                      )}
+                    </span>
+                    <span>{skill.name}</span>
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
 
         <div className="about-right">
@@ -135,42 +228,29 @@ export function HomeSections({
             <div>
               <p className="section-kicker">Now</p>
               <h2 className="now-title" id="about-title">
-                最近在做什么
+                {home.nowTitle}
               </h2>
             </div>
           </div>
-          <div className="timeline">
-            <div className="timeline-item">
-              <span className="timeline-label">01 / Build</span>
-              <p className="timeline-copy">
-                构建一个和 AI 融合的
-                {firstProduct ? (
-                  <Link
-                    className="inline-link"
-                    href={`/products/${firstProduct.slug}`}
-                  >
-                    {firstProduct.title} <ArrowUpRightIcon />
-                  </Link>
-                ) : (
-                  "内容系统"
-                )}
-              </p>
+          {home.nowItems.length ? (
+            <div className="timeline">
+              {home.nowItems.map((item, index) => (
+                <div
+                  className="timeline-item"
+                  // biome-ignore lint/suspicious/noArrayIndexKey: 静态渲染的一次性列表，条目可重复
+                  key={`${item.label}-${index}`}
+                >
+                  <span className="timeline-label">
+                    <span className="timeline-num">
+                      {String(index + 1).padStart(2, "0")} /
+                    </span>
+                    <span className="timeline-word">{item.label}</span>
+                  </span>
+                  <NowItemCopy item={item} product={firstProduct} />
+                </div>
+              ))}
             </div>
-            <div className="timeline-item">
-              <span className="timeline-label">02 / Write</span>
-              <p className="timeline-copy">持续整理个人产品与工程笔记。</p>
-            </div>
-            <div className="timeline-item">
-              <span className="timeline-label">03 / Study</span>
-              <p className="timeline-copy">学习AI+产品设计+开发</p>
-            </div>
-            <div className="timeline-item">
-              <span className="timeline-label">04 / Train</span>
-              <p className="timeline-copy">
-                健身，练出硕大的肌肉💪，保持长期主义。
-              </p>
-            </div>
-          </div>
+          ) : null}
         </div>
       </section>
 

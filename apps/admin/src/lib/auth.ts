@@ -39,8 +39,17 @@ export async function verifyCredentials(username: string, password: string) {
   return Boolean(fallback && password === fallback);
 }
 
+// 过期的限流记录留在 Map 里会随时间无限增长，条目变多时顺手清理。
+function pruneLoginAttempts(now: number) {
+  if (attempts.size < 256) return;
+  for (const [key, entry] of attempts) {
+    if (entry.resetAt < now) attempts.delete(key);
+  }
+}
+
 export function checkLoginRateLimit(ip: string) {
   const now = Date.now();
+  pruneLoginAttempts(now);
   const current = attempts.get(ip);
   if (!current || current.resetAt < now) {
     attempts.set(ip, { count: 1, resetAt: now + 15 * 60_000 });

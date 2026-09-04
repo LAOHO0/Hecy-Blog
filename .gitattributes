@@ -1,0 +1,12 @@
+# 统一使用 LF 行尾，保证 Windows 检出后 biome 格式检查与 CI 结果一致。
+* text=auto eol=lf
+
+# 二进制文件不做行尾转换。
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary

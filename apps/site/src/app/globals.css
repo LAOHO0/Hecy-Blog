@@ -514,6 +514,14 @@ a:focus-visible {
   height: 16px;
 }
 
+.skill-img {
+  border-radius: 3px;
+  display: block;
+  height: 16px;
+  object-fit: cover;
+  width: 16px;
+}
+
 .tech-badge svg {
   display: block;
   width: 14px;
@@ -547,6 +555,18 @@ a:focus-visible {
 }
 .skill-icon.python {
   color: #3776ab;
+}
+.skill-icon.raycast {
+  color: #ff6363;
+}
+.skill-icon.chrome {
+  color: #4285f4;
+}
+.skill-icon.tiktok {
+  color: #69c9d0;
+}
+.skill-icon.generic {
+  color: var(--muted);
 }
 
 .about-right {
@@ -603,6 +623,12 @@ a:focus-visible {
   font-family: var(--font-data);
   font-size: 11px;
   line-height: 16.5px;
+}
+
+/* 序号与小标题固定两行，避免不同文字长度导致换行位置不一致。 */
+.timeline-label .timeline-num,
+.timeline-label .timeline-word {
+  display: block;
 }
 
 .timeline-copy {
@@ -1352,6 +1378,52 @@ a:focus-visible {
 .markdown-content code {
   font-family: var(--font-data);
   font-size: 0.9em;
+}
+
+.markdown-content :not(pre) > code {
+  background: var(--muted);
+  padding: 2px 6px;
+}
+
+.markdown-content a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markdown-content del {
+  color: var(--muted-foreground);
+}
+
+.markdown-content img {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: block;
+  height: auto;
+  margin: 1.4rem auto;
+  max-width: 100%;
+}
+
+.markdown-table-wrap {
+  margin: 1.4rem 0;
+  overflow-x: auto;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+}
+
+.markdown-content thead th {
+  background: var(--muted);
+  font-weight: 600;
 }
 
 .not-found {

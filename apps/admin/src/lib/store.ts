@@ -9,6 +9,7 @@ import {
   slugRedirects,
 } from "@hecy/content/schema";
 import { defaultSettings, seedContent } from "@hecy/content/seed";
+import { normalizeSiteSettings } from "@hecy/content/settings";
 import type {
   BuildRecord,
   ContentRecord,
@@ -18,7 +19,7 @@ import type {
   SiteSettings,
 } from "@hecy/content/types";
 import type { ContentInput } from "@hecy/content/validation";
-import { and, desc, eq, ne, or } from "drizzle-orm";
+import { and, desc, eq, max, ne, or } from "drizzle-orm";
 import { getDatabase } from "./db";
 
 type ListOptions = {
@@ -320,30 +321,83 @@ export async function listPublishedContent(type?: ContentRecord["type"]) {
 }
 
 export async function getContent(id: string) {
-  const records = await listContent();
-  return records.find((record) => record.id === id);
+  const db = getDatabase();
+  if (db) {
+    const [row] = await db
+      .select()
+      .from(contentTable)
+      .where(eq(contentTable.id, id))
+      .limit(1);
+    return row
+      ? rowToContent(row as unknown as Record<string, unknown>)
+      : undefined;
+  }
+  const record = getMemory().content.find((item) => item.id === id);
+  return record ? clone(record) : undefined;
 }
 
 export async function getContentBySlug(
   slug: string,
   type?: ContentRecord["type"],
 ) {
-  const records = await listContent();
-  return records.find(
-    (record) => record.slug === slug && (!type || record.type === type),
+  const db = getDatabase();
+  if (db) {
+    if (type) {
+      const [row] = await db
+        .select()
+        .from(contentTable)
+        .where(and(eq(contentTable.type, type), eq(contentTable.slug, slug)))
+        .limit(1);
+      return row
+        ? rowToContent(row as unknown as Record<string, unknown>)
+        : undefined;
+    }
+    // 同一 slug 可能被文章、产品、项目同时使用，保持与列表一致的排序规则。
+    const rows = await db
+      .select()
+      .from(contentTable)
+      .where(eq(contentTable.slug, slug));
+    const records = sortContent(
+      rows.map((row) =>
+        rowToContent(row as unknown as Record<string, unknown>),
+      ),
+    );
+    return records[0];
+  }
+  const matches = getMemory().content.filter(
+    (item) => item.slug === slug && (!type || item.type === type),
   );
+  return sortContent(matches.map(clone))[0];
 }
 
 export async function getPreviewByToken(token: string) {
-  const records = await listContent();
-  const record = records.find((item) => item.previewToken === token);
+  const db = getDatabase();
+  if (db) {
+    const [row] = await db
+      .select()
+      .from(contentTable)
+      .where(eq(contentTable.previewToken, token))
+      .limit(1);
+    if (!row) return undefined;
+    const record = rowToContent(row as unknown as Record<string, unknown>);
+    if (
+      !record.previewExpiresAt ||
+      new Date(record.previewExpiresAt).getTime() < Date.now()
+    ) {
+      return undefined;
+    }
+    return record;
+  }
+  const record = getMemory().content.find(
+    (item) => item.previewToken === token,
+  );
   if (!record) return undefined;
   if (
     !record.previewExpiresAt ||
     new Date(record.previewExpiresAt).getTime() < Date.now()
   )
     return undefined;
-  return record;
+  return clone(record);
 }
 
 export async function createContent(input: ContentInput) {
@@ -485,7 +539,17 @@ export async function deleteContent(id: string) {
 
 async function createVersion(record: ContentRecord, createdBy: string) {
   const db = getDatabase();
-  const versionNumber = (await listVersions(record.id)).length + 1;
+  let versionNumber: number;
+  if (db) {
+    // 只聚合版本号，避免为了计数把所有历史快照加载进内存。
+    const [aggregate] = await db
+      .select({ maxVersion: max(contentVersions.version) })
+      .from(contentVersions)
+      .where(eq(contentVersions.contentId, record.id));
+    versionNumber = (aggregate?.maxVersion ?? 0) + 1;
+  } else {
+    versionNumber = (await listVersions(record.id)).length + 1;
+  }
   const version: ContentVersion = {
     id: crypto.randomUUID(),
     contentId: record.id,
@@ -821,7 +885,9 @@ export async function getSettings(): Promise<SiteSettings> {
       .select()
       .from(siteSettings)
       .where(eq(siteSettings.id, "site"));
-    if (row?.value) return row.value as SiteSettings;
+    if (row?.value) {
+      return normalizeSiteSettings(row.value as SiteSettings);
+    }
   }
   return clone(getMemory().settings);
 }

@@ -1,3 +1,4 @@
+import { defaultHomepage } from "./settings";
 import type { ContentRecord, SiteSettings } from "./types";
 
 const iso = (value: string) => new Date(value).toISOString();
@@ -276,4 +277,5 @@ export const defaultSettings: SiteSettings = {
     { label: "关于", href: "/#about" },
   ],
   footerText: "© 2026 Hecy Blog",
+  homepage: defaultHomepage,
 };

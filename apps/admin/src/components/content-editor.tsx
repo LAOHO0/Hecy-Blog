@@ -1,15 +1,18 @@
 "use client";
 
-import { markdownBlockIdentity, parseMarkdown } from "@hecy/content/markdown";
+import { parseMarkdown } from "@hecy/content/markdown";
 import type {
   ContentRecord,
   ContentVersion,
+  MediaAsset,
   ProductStatus,
 } from "@hecy/content/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Icon } from "@/components/icon";
+import { MarkdownView } from "@/components/markdown-view";
+import { MediaPickerModal } from "@/components/media-picker";
 import { statusClass, statusLabels, typeLabels } from "@/lib/presentation";
 
 type EditorData = {
@@ -38,6 +41,17 @@ type EditorData = {
   canonicalUrl: string;
   ogImageUrl: string;
 };
+
+/** 标题转 slug：小写字母数字与短横线；中文标题产不出合法结果时返回空串，交给用户手填。 */
+function slugify(title: string) {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/['’"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 160);
+}
 
 function fromRecord(
   record: ContentRecord | null,
@@ -144,15 +158,126 @@ export function ContentEditor({
   const [versions, setVersions] = useState<ContentVersion[]>([]);
   const [showVersions, setShowVersions] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
+  // 新建时 slug 跟随标题自动生成；用户手动改过后就不再覆盖。
+  const [slugEdited, setSlugEdited] = useState(Boolean(initial));
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [bodyView, setBodyView] = useState<"write" | "split" | "preview">(
+    "split",
+  );
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const blocks = useMemo(() => parseMarkdown(data.body), [data.body]);
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fullscreen]);
 
   function update<K extends keyof EditorData>(key: K, value: EditorData[K]) {
     setData((current) => ({ ...current, [key]: value }));
   }
 
+  /** 基于当前选区改写正文，并在渲染后恢复焦点和选区。 */
+  function applyBodyEdit(
+    transform: (
+      value: string,
+      start: number,
+      end: number,
+    ) => { value: string; start: number; end: number },
+  ) {
+    const element = bodyRef.current;
+    if (!element) return;
+    const next = transform(
+      element.value,
+      element.selectionStart,
+      element.selectionEnd,
+    );
+    update("body", next.value);
+    requestAnimationFrame(() => {
+      element.focus();
+      element.setSelectionRange(next.start, next.end);
+    });
+  }
+
+  function wrapSelection(before: string, after: string, placeholder: string) {
+    applyBodyEdit((value, start, end) => {
+      const selected = value.slice(start, end) || placeholder;
+      return {
+        value:
+          value.slice(0, start) + before + selected + after + value.slice(end),
+        start: start + before.length,
+        end: start + before.length + selected.length,
+      };
+    });
+  }
+
+  function prefixLines(prefix: string) {
+    applyBodyEdit((value, start, end) => {
+      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+      const found = value.indexOf("\n", end);
+      const lineEnd = found === -1 ? value.length : found;
+      const block = value.slice(lineStart, lineEnd);
+      const prefixed = block
+        .split("\n")
+        .map((line) => (line.trim() ? prefix + line : line))
+        .join("\n");
+      return {
+        value: value.slice(0, lineStart) + prefixed + value.slice(lineEnd),
+        start: lineStart,
+        end: lineStart + prefixed.length,
+      };
+    });
+  }
+
+  function insertSnippet(snippet: string) {
+    applyBodyEdit((value, start, end) => ({
+      value: value.slice(0, start) + snippet + value.slice(end),
+      start: start + snippet.length,
+      end: start + snippet.length,
+    }));
+  }
+
+  function insertImage(asset: MediaAsset) {
+    insertSnippet(
+      `![${asset.alt || asset.key.split("/").at(-1) || "图片"}](${asset.url})\n`,
+    );
+    setMediaOpen(false);
+  }
+
+  function updateTitle(value: string) {
+    setData((current) => ({
+      ...current,
+      title: value,
+      slug: !record && !slugEdited ? slugify(value) : current.slug,
+    }));
+  }
+
+  function validate(): boolean {
+    const errors: Record<string, string> = {};
+    if (!data.title.trim()) errors.title = "标题不能为空。";
+    const slug = data.slug.trim();
+    if (!slug) errors.slug = "Slug 不能为空。";
+    else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      errors.slug = "Slug 只允许小写字母、数字和短横线。";
+    }
+    if (data.type === "project" && !data.projectTechStack.trim()) {
+      errors.projectTechStack = "技术栈不能为空。";
+    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setNotice({ tone: "error", text: "请先修正表单中标红的必填项。" });
+      return false;
+    }
+    return true;
+  }
+
   async function save(): Promise<ContentRecord | null> {
     setNotice(null);
+    if (!validate()) return null;
     const endpoint = record ? `/api/content/${record.id}` : "/api/content";
     const response = await fetch(endpoint, {
       method: record ? "PATCH" : "POST",
@@ -173,6 +298,7 @@ export function ContentEditor({
     }
     setRecord(payload.item);
     setData(fromRecord(payload.item, payload.item.type));
+    setFieldErrors({});
     setNotice({
       tone: "ok",
       text:
@@ -390,8 +516,14 @@ export function ContentEditor({
             </span>
           </div>
           <div className="form-grid editor-fields">
+            <p className="field-help full-span">
+              带 <span className="required-mark">*</span>{" "}
+              为必填项，其余留空会使用合理默认值。
+            </p>
             <label className="field">
-              <span className="field-label">内容类型</span>
+              <span className="field-label">
+                内容类型 <span className="required-mark">*</span>
+              </span>
               <select
                 className="select"
                 disabled={Boolean(record)}
@@ -417,24 +549,39 @@ export function ContentEditor({
               />
             </label>
             <label className="field full">
-              <span className="field-label">标题</span>
+              <span className="field-label">
+                标题 <span className="required-mark">*</span>
+              </span>
               <input
-                className="input input-large"
-                onChange={(event) => update("title", event.target.value)}
+                className={`input input-large${fieldErrors.title ? " invalid" : ""}`}
+                onChange={(event) => updateTitle(event.target.value)}
                 placeholder="输入标题"
                 value={data.title}
               />
+              {fieldErrors.title ? (
+                <span className="field-error">{fieldErrors.title}</span>
+              ) : null}
             </label>
             <label className="field">
               <span className="field-label">
-                Slug（只允许小写字母、数字和短横线）
+                Slug（只允许小写字母、数字和短横线）{" "}
+                <span className="required-mark">*</span>
               </span>
               <input
-                className="input"
-                onChange={(event) => update("slug", event.target.value)}
+                className={`input${fieldErrors.slug ? " invalid" : ""}`}
+                onChange={(event) => {
+                  setSlugEdited(true);
+                  update("slug", event.target.value);
+                }}
                 placeholder="例如 my-first-post"
                 value={data.slug}
               />
+              <span className="field-help">
+                英文标题会自动生成；中文标题请手动填写英文 Slug。
+              </span>
+              {fieldErrors.slug ? (
+                <span className="field-error">{fieldErrors.slug}</span>
+              ) : null}
             </label>
             <label className="field">
               <span className="field-label">排序权重</span>
@@ -489,7 +636,9 @@ export function ContentEditor({
             <FieldGroup title="产品字段">
               <div className="form-grid">
                 <label className="field">
-                  <span className="field-label">产品状态</span>
+                  <span className="field-label">
+                    产品状态 <span className="required-mark">*</span>
+                  </span>
                   <select
                     className="select"
                     onChange={(event) =>
@@ -566,14 +715,21 @@ export function ContentEditor({
                   />
                 </label>
                 <label className="field full">
-                  <span className="field-label">技术栈（逗号分隔）</span>
+                  <span className="field-label">
+                    技术栈（逗号分隔） <span className="required-mark">*</span>
+                  </span>
                   <input
-                    className="input"
+                    className={`input${fieldErrors.projectTechStack ? " invalid" : ""}`}
                     onChange={(event) =>
                       update("projectTechStack", event.target.value)
                     }
                     value={data.projectTechStack}
                   />
+                  {fieldErrors.projectTechStack ? (
+                    <span className="field-error">
+                      {fieldErrors.projectTechStack}
+                    </span>
+                  ) : null}
                 </label>
                 <label className="field">
                   <span className="field-label">代码仓库</span>
@@ -602,13 +758,157 @@ export function ContentEditor({
           ) : null}
 
           <FieldGroup title="Markdown / MDX 正文（安全子集）">
-            <textarea
-              className="textarea mdx-input"
-              onChange={(event) => update("body", event.target.value)}
-              value={data.body}
-            />
+            <div
+              className={`body-editor-shell${fullscreen ? " fullscreen" : ""}`}
+            >
+              <div className="md-toolbar">
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("## ")}
+                  title="二级标题"
+                  type="button"
+                >
+                  H2
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("### ")}
+                  title="三级标题"
+                  type="button"
+                >
+                  H3
+                </button>
+                <span aria-hidden="true" className="md-tool-sep" />
+                <button
+                  className="md-tool"
+                  onClick={() => wrapSelection("**", "**", "加粗文字")}
+                  title="加粗"
+                  type="button"
+                >
+                  <strong>B</strong>
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => wrapSelection("*", "*", "斜体文字")}
+                  title="斜体"
+                  type="button"
+                >
+                  <em>I</em>
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => wrapSelection("~~", "~~", "删除文字")}
+                  title="删除线"
+                  type="button"
+                >
+                  <del>S</del>
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => wrapSelection("`", "`", "代码")}
+                  title="行内代码"
+                  type="button"
+                >
+                  {"</>"}
+                </button>
+                <span aria-hidden="true" className="md-tool-sep" />
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("> ")}
+                  title="引用"
+                  type="button"
+                >
+                  引用
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("- ")}
+                  title="无序列表"
+                  type="button"
+                >
+                  列表
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => insertSnippet("\n```js\n// 代码\n```\n")}
+                  title="代码块"
+                  type="button"
+                >
+                  代码块
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => wrapSelection("[", "](https://)", "链接文字")}
+                  title="链接"
+                  type="button"
+                >
+                  链接
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() =>
+                    insertSnippet(
+                      "\n| 列一 | 列二 | 列三 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n",
+                    )
+                  }
+                  title="插入表格"
+                  type="button"
+                >
+                  表格
+                </button>
+                <span aria-hidden="true" className="md-tool-sep" />
+                <button
+                  className="md-tool"
+                  onClick={() => setMediaOpen(true)}
+                  title="从媒体库插入图片"
+                  type="button"
+                >
+                  <Icon name="image" />
+                  图片
+                </button>
+                <span className="md-toolbar-spacer" />
+                <div className="md-view-switch">
+                  {(["write", "split", "preview"] as const).map((mode) => (
+                    <button
+                      aria-pressed={bodyView === mode}
+                      className={`md-tool${bodyView === mode ? " active" : ""}`}
+                      key={mode}
+                      onClick={() => setBodyView(mode)}
+                      type="button"
+                    >
+                      {mode === "write"
+                        ? "编写"
+                        : mode === "split"
+                          ? "分屏"
+                          : "预览"}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="md-tool"
+                  onClick={() => setFullscreen(!fullscreen)}
+                  title={fullscreen ? "退出全屏（Esc）" : "全屏编辑"}
+                  type="button"
+                >
+                  {fullscreen ? "退出全屏" : "全屏"}
+                </button>
+              </div>
+              <div className={`body-editor ${bodyView}`}>
+                <textarea
+                  className="textarea mdx-input"
+                  onChange={(event) => update("body", event.target.value)}
+                  ref={bodyRef}
+                  value={data.body}
+                />
+                {bodyView !== "write" ? (
+                  <div className="body-preview">
+                    <MarkdownView source={data.body} />
+                  </div>
+                ) : null}
+              </div>
+            </div>
             <p className="field-help">
-              支持标题、段落、列表、引用和代码块；产品和项目与文章使用同一编辑器。
+              支持标题、段落、列表、引用、代码块、表格、加粗、斜体、删除线、链接、图片和行尾两空格换行；工具栏可快速插入，右侧实时预览与前台一致。
             </p>
           </FieldGroup>
 
@@ -701,10 +1001,18 @@ export function ContentEditor({
             <h2>{data.title || "未命名内容"}</h2>
             <p className="live-excerpt">{data.excerpt || "还没有摘要。"}</p>
             <div className="preview-rule" />
-            <LiveBlocks blocks={blocks} />
+            <MarkdownView source={data.body} />
           </article>
         </aside>
       </div>
+
+      {mediaOpen ? (
+        <MediaPickerModal
+          onClose={() => setMediaOpen(false)}
+          onSelect={insertImage}
+          title="从媒体库插入图片"
+        />
+      ) : null}
 
       {showVersions ? (
         <div
@@ -769,40 +1077,5 @@ function FieldGroup({
       <h2>{title}</h2>
       {children}
     </section>
-  );
-}
-
-function LiveBlocks({ blocks }: { blocks: ReturnType<typeof parseMarkdown> }) {
-  const occurrences = new Map<string, number>();
-  return (
-    <div className="markdown-view">
-      {blocks.map((block) => {
-        const identity = markdownBlockIdentity(block);
-        const occurrence = occurrences.get(identity) ?? 0;
-        occurrences.set(identity, occurrence + 1);
-        const key = `${identity}:${occurrence}`;
-        if (block.type === "heading") {
-          const Tag = `h${block.level}` as "h1" | "h2" | "h3";
-          return <Tag key={key}>{block.text}</Tag>;
-        }
-        if (block.type === "code")
-          return (
-            <pre key={key}>
-              <code>{block.text}</code>
-            </pre>
-          );
-        if (block.type === "quote")
-          return <blockquote key={key}>{block.text}</blockquote>;
-        if (block.type === "list")
-          return (
-            <ul key={key}>
-              {block.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          );
-        return <p key={key}>{block.text}</p>;
-      })}
-    </div>
   );
 }

@@ -10,10 +10,23 @@ describe("Markdown 内容解析", () => {
     );
 
     expect(blocks).toEqual([
-      { type: "heading", level: 1, text: "标题" },
-      { type: "paragraph", text: "正文第一行 正文第二行" },
-      { type: "list", items: ["一", "二"] },
-      { type: "quote", text: "提示" },
+      { type: "heading", level: 1, inline: [{ kind: "text", value: "标题" }] },
+      {
+        type: "paragraph",
+        inline: [
+          { kind: "text", value: "正文第一行" },
+          { kind: "text", value: " " },
+          { kind: "text", value: "正文第二行" },
+        ],
+      },
+      {
+        type: "list",
+        items: [
+          [{ kind: "text", value: "一" }],
+          [{ kind: "text", value: "二" }],
+        ],
+      },
+      { type: "quote", inline: [{ kind: "text", value: "提示" }] },
       { type: "code", language: "ts", text: "const answer = 42;" },
     ]);
   });

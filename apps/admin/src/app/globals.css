@@ -1286,6 +1286,190 @@ kbd {
   padding: 0 22px 22px;
 }
 
+/* Markdown 正文编辑器：工具栏 + 分屏 + 全屏 */
+.body-editor-shell {
+  --body-h: min(62vh, 640px);
+  display: grid;
+  gap: 10px;
+}
+
+.body-editor-shell.fullscreen {
+  --body-h: calc(100vh - 110px);
+  background: var(--bg);
+  inset: 0;
+  padding: 14px 16px 16px;
+  position: fixed;
+  z-index: 80;
+}
+
+.md-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.md-toolbar-spacer {
+  flex: 1;
+}
+
+.md-tool {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 12px;
+  gap: 4px;
+  justify-content: center;
+  min-width: 30px;
+  padding: 5px 9px;
+}
+
+.md-tool:hover {
+  border-color: var(--line-strong);
+}
+
+.md-tool.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.md-tool:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.md-tool-sep {
+  background: var(--line);
+  height: 18px;
+  margin: 0 4px;
+  width: 1px;
+}
+
+.md-view-switch {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.body-editor {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.body-editor.split {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.body-editor .mdx-input {
+  height: var(--body-h);
+  min-height: 320px;
+}
+
+.body-preview {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  height: var(--body-h);
+  overflow: auto;
+  padding: 14px 16px;
+}
+
+@media (max-width: 1100px) {
+  .body-editor.split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 后台 Markdown 预览：表格、图片与内联元素 */
+.markdown-view img {
+  border-radius: 4px;
+  height: auto;
+  max-width: 100%;
+}
+
+.markdown-table-wrap {
+  overflow-x: auto;
+}
+
+.markdown-view table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+}
+
+.markdown-view th,
+.markdown-view td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+}
+
+.markdown-view thead th {
+  background: var(--surface-2);
+}
+
+/* 媒体选择弹窗 */
+.media-upload-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.media-picker-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  max-height: 340px;
+  overflow: auto;
+}
+
+.media-thumb {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  display: grid;
+  font-family: inherit;
+  gap: 6px;
+  padding: 6px;
+}
+
+.media-thumb:hover {
+  border-color: var(--line-strong);
+}
+
+.media-thumb img {
+  height: 64px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.media-thumb-name {
+  color: var(--muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-modal {
+  max-width: 560px;
+  width: min(560px, calc(100vw - 32px));
+}
+
+.avatar-row {
+  display: flex;
+  gap: 8px;
+}
+
+.avatar-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
 .settings-panel {
   max-width: 900px;
 }
@@ -1300,6 +1484,332 @@ kbd {
   justify-content: flex-end;
   gap: 14px;
   padding: 0 22px 22px;
+}
+
+/* 设置页：页签 + 首页编辑器 + 实时预览 */
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+  align-items: start;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 22px 0;
+}
+
+/* 内容列表顶部的类型页签独立于面板，不带面板内边距。 */
+.settings-tabs.content-tabs {
+  margin-bottom: 16px;
+  padding: 0;
+}
+
+.settings-tab {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  font-family: inherit;
+  gap: 2px;
+  padding: 9px 16px;
+  text-align: left;
+}
+
+.settings-tab .tab-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-tab .tab-hint {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.settings-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.settings-tab.active .tab-hint {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.field-label-with-count {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 10px;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.char-count {
+  color: var(--faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.char-count.over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.required-mark {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.field-help.full-span {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.field-error.row-error {
+  grid-column: 2 / -1;
+}
+
+.input.invalid,
+.select.invalid,
+.textarea.invalid {
+  border-color: var(--danger);
+}
+
+.skill-editor,
+.now-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.editor-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+}
+
+.custom-icon-row {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.row-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.icon-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-grid;
+  font-size: 13px;
+  height: 32px;
+  place-items: center;
+  width: 32px;
+}
+
+.icon-button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.icon-button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.icon-button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.now-item-editor {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.now-item-head {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.now-item-index {
+  color: var(--faint);
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+}
+
+.now-item-meta {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.link-hint {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.link-hint code {
+  color: var(--muted);
+  font-family: "Space Mono", monospace;
+}
+
+/* 首页实时预览 */
+.home-preview {
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  position: sticky;
+  top: 24px;
+}
+
+.home-preview-badge {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hp-greeting {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 6px;
+}
+
+.hp-headline {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.hp-columns {
+  display: grid;
+  gap: 16px;
+}
+
+.hp-kicker {
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.hp-skills-kicker {
+  border-bottom: none;
+  margin: 14px 0 6px;
+}
+
+.hp-profile {
+  border: 1px solid var(--line);
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  justify-content: space-between;
+  padding: 8px 10px;
+}
+
+.hp-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hp-skill {
+  align-items: center;
+  border: 1px solid var(--line);
+  display: inline-flex;
+  font-size: 11px;
+  gap: 5px;
+  padding: 4px 8px;
+}
+
+.hp-dot {
+  border-radius: 2px;
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+}
+
+.hp-now-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.hp-now-list {
+  border-left: 1px solid var(--line);
+  display: grid;
+  gap: 9px;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
+}
+
+.hp-now-item {
+  display: grid;
+  font-size: 12px;
+  gap: 3px;
+}
+
+.hp-now-idx {
+  color: var(--faint);
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+}
+
+.hp-now-copy {
+  line-height: 1.5;
+}
+
+.hp-link-chip {
+  border-bottom: 1px dashed var(--line-strong);
+  color: var(--muted);
+  font-size: 10px;
+  margin-left: 5px;
+  white-space: nowrap;
+}
+
+.hp-empty {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+@media (max-width: 1180px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .home-preview {
+    position: static;
+  }
 }
 
 .media-toolbar {

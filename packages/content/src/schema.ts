@@ -42,6 +42,9 @@ export const content = pgTable(
     slugUnique: uniqueIndex("content_slug_unique").on(table.type, table.slug),
     statusIndex: index("content_status_idx").on(table.status),
     typeIndex: index("content_type_idx").on(table.type),
+    previewTokenIndex: index("content_preview_token_idx").on(
+      table.previewToken,
+    ),
   }),
 );
 
