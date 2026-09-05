@@ -252,6 +252,23 @@ VPS 单机（第 1 节）或 Vercel（第 0 节）都不需要本节；只有当
 3. 宿主机部署：手动执行一次 `pnpm db:push`（在仓库根目录，需 DATABASE_URL）。
 4. 修复后页面无需重启即可恢复；`docker compose restart admin` 可强制重跑初始化。
 
+### 通过 HTTP + 公网 IP 访问后台时页面白屏/设置页崩溃
+
+浏览器的 `crypto.randomUUID()` 只在安全上下文（HTTPS 或 localhost）可用，
+用 `http://<服务器IP>` 访问后台时该 API 不存在，曾导致设置页客户端崩溃。
+当前版本已在源码层修复（`apps/admin/src/lib/client-key.ts` 按能力降级），
+拉取最新代码重新 `docker compose up -d --build` 即可。
+
+生产环境仍建议为后台绑定域名并启用 HTTPS（安全性和兼容性最好）：
+
+1. 域名 A 记录解析到 VPS IP；
+2. Nginx 反代 `127.0.0.1:3001`（见 1.3）；
+3. `certbot --nginx -d admin.example.com` 签发 Let's Encrypt 证书；
+4. `.env` 中 `ADMIN_ORIGIN=https://admin.example.com` 后 `docker compose up -d`。
+
+临时管理也可以用 SSH 隧道绕过：本地执行
+`ssh -L 3001:127.0.0.1:3001 root@<服务器IP>` 后访问 `http://localhost:3001`。
+
 ### 后台点发布后前台没更新
 
 1. 打开后台"构建"页看该条构建记录的状态与失败摘要：

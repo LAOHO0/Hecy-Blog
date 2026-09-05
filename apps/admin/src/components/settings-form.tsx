@@ -17,6 +17,7 @@ import { useState, useTransition } from "react";
 import { HomePreview } from "@/components/home-preview";
 import { Icon } from "@/components/icon";
 import { MediaPickerModal } from "@/components/media-picker";
+import { createClientKey } from "@/lib/client-key";
 
 type SettingsErrors = Record<string, string>;
 type TabKey = "basic" | "about" | "now";
@@ -223,16 +224,16 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   // 编辑行会增删和排序，用稳定 key 避免受控输入跟随索引错位。
   const [skillKeys, setSkillKeys] = useState(() =>
-    initial.homepage.skills.map(() => crypto.randomUUID()),
+    initial.homepage.skills.map(() => createClientKey()),
   );
   const [nowKeys, setNowKeys] = useState(() =>
-    initial.homepage.nowItems.map(() => crypto.randomUUID()),
+    initial.homepage.nowItems.map(() => createClientKey()),
   );
   const [socialKeys, setSocialKeys] = useState(() =>
-    initial.socialLinks.map(() => crypto.randomUUID()),
+    initial.socialLinks.map(() => createClientKey()),
   );
   const [navKeys, setNavKeys] = useState(() =>
-    initial.navigation.map(() => crypto.randomUUID()),
+    initial.navigation.map(() => createClientKey()),
   );
 
   const home = settings.homepage;
@@ -314,7 +315,7 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
   function addSkill() {
     if (home.skills.length >= limits.skills) return;
     updateHome("skills", [...home.skills, { name: "", icon: "" }]);
-    setSkillKeys((keys) => [...keys, crypto.randomUUID()]);
+    setSkillKeys((keys) => [...keys, createClientKey()]);
   }
 
   function addNow() {
@@ -323,7 +324,7 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
       ...home.nowItems,
       { label: "", content: "" } satisfies HomepageNowItem,
     ]);
-    setNowKeys((keys) => [...keys, crypto.randomUUID()]);
+    setNowKeys((keys) => [...keys, createClientKey()]);
   }
 
   function updateSocial(
@@ -341,7 +342,7 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
   function addSocial() {
     if (settings.socialLinks.length >= LINK_LIMITS.count) return;
     update("socialLinks", [...settings.socialLinks, { label: "", url: "" }]);
-    setSocialKeys((keys) => [...keys, crypto.randomUUID()]);
+    setSocialKeys((keys) => [...keys, createClientKey()]);
   }
 
   function removeSocial(index: number) {
@@ -372,7 +373,7 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
   function addNav() {
     if (settings.navigation.length >= LINK_LIMITS.count) return;
     update("navigation", [...settings.navigation, { label: "", href: "" }]);
-    setNavKeys((keys) => [...keys, crypto.randomUUID()]);
+    setNavKeys((keys) => [...keys, createClientKey()]);
   }
 
   function removeNav(index: number) {
