@@ -80,19 +80,25 @@ git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
 
 ### 方式 B：Docker Compose（多项目共用一台 VPS 时推荐）
 
-compose 里已内置 `BUILD_MODE=local`：后台点发布会在**容器内**直接重建前台，
+compose 内置 `BUILD_MODE=local`：后台点发布会在**容器内**直接重建前台，
 静态产物落到仓库根目录的 `site-out/`（bind mount），宿主机 Nginx 直接指向该目录。
 最适合一台 VPS 跑多个项目、不想让本项目的 Node/PostgreSQL 污染全局环境的情况。
 
 ~~~bash
 git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
-cp .env.example .env.deploy    # 必填：ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET / ADMIN_ORIGIN
-                               # 以及 NEXT_PUBLIC_SITE_URL（前台域名，构建时写入页面链接）
-docker compose up -d --build   # 一键启动 PostgreSQL + 后台
-docker compose exec admin pnpm db:push   # 初始化表结构（首次一次即可）
+./scripts/docker-init.sh       # 交互生成 .env：输入管理员用户名和密码即可，
+                               # 密码哈希与 AUTH_SECRET 自动生成（哈希已转义 $）
+vi .env                        # 把 ADMIN_ORIGIN / NEXT_PUBLIC_SITE_URL 改成实际域名
+docker compose up -d --build   # 一键启动；建表与空库种子由容器启动脚本自动完成
 ~~~
 
-验证部署成功：浏览器打开 `ADMIN_ORIGIN` 能看到后台登录页即正常。此后在后台点"发布"，约半分钟后 `site-out/` 内容更新，前台自动生效。更新版本同样是 `git pull && docker compose up -d --build`。
+验证部署成功：`docker compose ps` 中 admin 显示 healthy，浏览器打开 `ADMIN_ORIGIN` 能看到后台登录页即正常。此后在后台点"发布"，约半分钟后 `site-out/` 内容更新，前台自动生效。更新版本同样是 `git pull && docker compose up -d --build`（升级会自动同步数据库结构）。
+
+几个值得知道的细节：
+
+- **凭据安全**：`.env` 由 `docker-init.sh` 生成，密码哈希里的 `$` 已自动转义为 `$$`（compose 插值特性，不转义会导致"密码正确却登录不了"）；请勿手动把未转义的 bcrypt 哈希直接写进 `.env`。
+- **PostgreSQL**：账密默认 `hecy/hecy`，可在 `.env` 用 `POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB` 覆盖；宿主机 5432 端口被占用时设置 `POSTGRES_HOST_PORT=15432`。
+- **前台 Web 服务**：compose 不含 Nginx 容器——多项目 VPS 通常已有宿主机 Nginx，直接复用（见下）；需要全容器化时自行加一个 `nginx:alpine` 服务挂载 `site-out/:/usr/share/nginx/html:ro` 即可。
 
 Nginx 前台 server 块把 root 指向产物目录即可（假设仓库克隆在 `/opt/Hecy-Blog`）：
 
@@ -151,8 +157,9 @@ server {
 - SITE_BUILD_DIR（可选；前台代码目录，默认 `<安装目录>/apps/site`）
 
 方式 B（Docker）无需手工设置这些：compose 已内置 `BUILD_MODE=local`、
-`SITE_BUILD_DIR=/app/apps/site` 与容器内的 `CONTENT_API_URL`，你只需要在
-`.env.deploy` 填管理员凭据、`ADMIN_ORIGIN` 和 `NEXT_PUBLIC_SITE_URL`。
+`SITE_BUILD_DIR=/app/apps/site` 与容器内的 `CONTENT_API_URL`，你只需要运行
+`./scripts/docker-init.sh` 生成 `.env`（管理员凭据、`ADMIN_ORIGIN`、
+`NEXT_PUBLIC_SITE_URL`），建表与空库种子也会在容器启动时自动完成。
 
 宿主机方式还需要前台目录有 `apps/site/.env.local`，至少包含：
 

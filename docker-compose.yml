@@ -4,49 +4,74 @@ services:
     container_name: hecy-blog-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: hecy
-      POSTGRES_PASSWORD: hecy
-      POSTGRES_DB: hecy_blog
+      POSTGRES_USER: ${POSTGRES_USER:-hecy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hecy}
+      POSTGRES_DB: ${POSTGRES_DB:-hecy_blog}
+    # 仅供本机调试连接；部署只需容器网络，5432 被占用时在 .env 里改 POSTGRES_HOST_PORT
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - hecy_blog_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hecy"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hecy}"]
       interval: 5s
       timeout: 3s
       retries: 12
 
   # 后台管理服务。首次使用：
-  #   1) 在仓库根目录创建 .env.deploy（参考 .env.example，至少配置
-  #      ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET / ADMIN_ORIGIN）
-  #   2) docker compose up -d --build
-  #   3) 初始化表结构：docker compose exec admin pnpm db:push
+  #   1) ./scripts/docker-init.sh   # 交互生成 .env（密码哈希已自动转义 $）
+  #   2) 编辑 .env 里的 ADMIN_ORIGIN / NEXT_PUBLIC_SITE_URL 为实际域名
+  #   3) docker compose up -d --build
+  # 数据库建表与空库种子由容器启动脚本自动完成，无需手工 db:push。
   #
-  # BUILD_MODE=local：后台点发布时在容器内直接重建前台（无需 GitHub/Vercel），
-  # 静态产物经 ./site-out 挂载落盘到仓库根目录的 site-out/，宿主机 Nginx
-  # 直接把 root 指向该目录即可。容器内 localhost:3001 就是后台自己的 API。
+  # 环境变量走 compose 插值（.env），不用 env_file：
+  # bcrypt 哈希里的 $ 在 env_file 中会被部分 compose 版本误当变量展开。
   admin:
     build:
       context: .
       dockerfile: apps/admin/Dockerfile
     container_name: hecy-blog-admin
     restart: unless-stopped
-    env_file:
-      - .env.deploy
     environment:
       NODE_ENV: production
       # 容器内访问同 compose 网络里的 PostgreSQL，覆盖连接串主机名
-      DATABASE_URL: postgresql://hecy:hecy@postgres:5432/hecy_blog
-      # 本机构建：前台代码在镜像内的固定路径，产物写入挂载卷
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hecy}:${POSTGRES_PASSWORD:-hecy}@postgres:5432/${POSTGRES_DB:-hecy_blog}
+      DATABASE_SSL: "false"
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:-}
+      SITE_ORIGIN: ${SITE_ORIGIN:-}
+      # 本机构建：前台代码在镜像内固定路径，产物经 out-live 挂载落盘
       BUILD_MODE: local
       SITE_BUILD_DIR: /app/apps/site
+      SITE_OUT_DIR: /app/apps/site/out-live
       CONTENT_API_URL: http://127.0.0.1:3001/api/public
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      # 可选：GitHub Actions / Vercel 远程构建模式与 S3 媒体存储
+      GITHUB_OWNER: ${GITHUB_OWNER:-}
+      GITHUB_REPO: ${GITHUB_REPO:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      VERCEL_DEPLOY_HOOK_URL: ${VERCEL_DEPLOY_HOOK_URL:-}
+      BUILD_WEBHOOK_SECRET: ${BUILD_WEBHOOK_SECRET:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
     ports:
       - "127.0.0.1:3001:3001"
     volumes:
-      - ./site-out:/app/apps/site/out
+      # 产物挂载点：构建写入 out/（镜像内），完成后同步到这里
+      - ./site-out:/app/apps/site/out-live
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       postgres:
         condition: service_healthy

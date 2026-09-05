@@ -92,7 +92,7 @@ Docker Compose 既可用于本地开发，也是 VPS 生产部署的推荐方式
 
 `apps/site` 使用静态导出，内容在构建时从 `CONTENT_API_URL` 读取。因此，后台发布内容后，已经部署的前台不会自动变化，必须重新构建并部署 `apps/site/out`。
 
-生产环境推荐用 VPS 单机模式：后台配置 `BUILD_MODE=local` 后，点发布即由后台在本机直接重建前台并回写构建状态，无需 GitHub Actions 中转。Vercel（Deploy Hook）与 GitHub Actions 两种远程模式详见 [部署说明](docs/deployment.md)。
+生产环境推荐用 VPS 单机模式：后台配置 `BUILD_MODE=local` 后，点发布即由后台在本机直接重建前台并回写构建状态，无需 GitHub Actions 中转。Docker 部署用 `./scripts/docker-init.sh` 生成 `.env`（密码哈希自动转义、AUTH_SECRET 随机生成），再 `docker compose up -d --build` 即可，建表与种子在容器启动时自动完成。Vercel（Deploy Hook）与 GitHub Actions 两种远程模式详见 [部署说明](docs/deployment.md)。
 
 本地构建前台时，先确保后台运行在 `3001` 端口：
 
