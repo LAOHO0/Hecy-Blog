@@ -60,7 +60,11 @@ DATABASE_URL="neon连接串" pnpm db:seed
 
 两种部署可共存：后台在 VPS、前台在 Vercel 时，只需在 VPS 的 `.env.local` 里配 `VERCEL_DEPLOY_HOOK_URL`，后台点发布同样直接唤起 Vercel 重建，绕开 GitHub Actions 中转。
 
-## 1. VPS 一键部署
+## 1. VPS 单机部署（推荐：发布不经过 GitHub）
+
+有 VPS 时最简单可靠的方案：后台、PostgreSQL、前台构建全部在同一台机器上，
+后台点"发布"由后台**直接本机构建前台**，全程不需要 GitHub Actions / Vercel 参与，
+GitHub 只作为代码备份。构建模式由 `BUILD_MODE` 决定（详见 1.4）。
 
 ### 方式 A：宿主机直跑（脚本）
 
@@ -72,7 +76,7 @@ git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
 ./scripts/deploy.sh            # 以后每次更新：拉取最新代码并重建重启
 ~~~
 
-`--init` 会先生成 `apps/admin/.env.local` 模板并退出，填好 `DATABASE_URL`、`ADMIN_PASSWORD_HASH`、`AUTH_SECRET`、`ADMIN_ORIGIN`、`BUILD_WEBHOOK_SECRET` 后重新执行即可。后台以 systemd 服务运行（`hecy-admin`），仅监听 `127.0.0.1:3001`，由 Nginx 反代对外。脚本默认安装目录为 `/opt/hecy-blog`，可用 `APP_DIR=/your/path` 覆盖。
+`--init` 会先生成 `apps/admin/.env.local` 模板并退出，填好必填项（见 1.4）后重新执行即可。后台以 systemd 服务运行（`hecy-admin`），仅监听 `127.0.0.1:3001`，由 Nginx 反代对外。脚本默认安装目录为 `/opt/hecy-blog`，可用 `APP_DIR=/your/path` 覆盖。
 
 ### 方式 B：Docker Compose
 
@@ -85,9 +89,13 @@ docker compose exec admin pnpm db:push
 
 更新版本同样是 `git pull && docker compose up -d --build`。两个方案都只把端口绑在 `127.0.0.1`，务必由 Nginx/Caddy 反代并配置 HTTPS 后再对外。
 
-### Nginx 反代参考
+### 1.3 Nginx 反代参考
+
+前后台各一个 server 块：后台反代 3001 端口，前台的 root 直接指向静态产物目录
+（默认模式是本机构建，产物在 `apps/site/out`；用 `SITE_BUILD_DIR` 自定义路径时按需调整）。
 
 ~~~nginx
+# 后台
 server {
     listen 443 ssl http2;
     server_name admin.example.com;
@@ -98,9 +106,42 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
+# 前台（静态文件）
+server {
+    listen 443 ssl http2;
+    server_name www.example.com;
+    root /opt/hecy-blog/apps/site/out;
+    index index.html;
+    location / {
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+}
 ~~~
 
-前台静态文件在 GitHub Actions 构建完成后由 rsync 自动部署（配置 `DEPLOY_*` Secrets），或手动从 Actions 产物 `hecy-site` 下载解压到 Web 目录。
+### 1.4 环境变量与构建模式
+
+`apps/admin/.env.local` 必填项：
+
+- DATABASE_URL（本机 PostgreSQL 形如 `postgresql://hecy:密码@127.0.0.1:5432/hecy`）
+- ADMIN_USERNAME、ADMIN_PASSWORD_HASH、AUTH_SECRET
+- ADMIN_ORIGIN（后台对外的完整地址，如 https://admin.example.com）
+- BUILD_MODE=local（启用本机构建）
+- SITE_BUILD_DIR（可选；前台代码目录，默认 `<安装目录>/apps/site`）
+
+本机构建还需要前台目录有 `apps/site/.env.local`，至少包含：
+
+- CONTENT_API_URL=http://127.0.0.1:3001/api/public（本机后台只读接口）
+- NEXT_PUBLIC_SITE_URL=https://www.example.com（前台最终域名）
+
+工作方式：后台点"发布"→ 数据库状态更新 → 后台以子进程在前台目录执行
+`pnpm exec next build` → 构建从 `CONTENT_API_URL` 读取已发布内容生成
+`apps/site/out` → 成功/失败状态直接写回后台"构建"页（无需任何回调 Secret）。
+
+`BUILD_MODE` 三种取值并存，按需选择：
+
+- 未设置/其他值：走 `VERCEL_DEPLOY_HOOK_URL`（Vercel）或 `GITHUB_TOKEN` 等（GitHub Actions）远程触发。
+- `local`：本文的本机模式。注意后台进程需要有前台目录的写权限；构建失败信息会记录在后台"构建"页。
 
 ## 2. 准备 PostgreSQL
 
@@ -136,9 +177,11 @@ pnpm db:seed
 pnpm --filter @hecy/admin exec tsx -e "import bcrypt from 'bcryptjs'; bcrypt.hash(process.argv[1], 12).then(console.log)" "你的强密码"
 ~~~
 
-## 4. 配置前台构建
+## 4. GitHub Actions 构建（可选的远程模式）
 
-在 GitHub Actions Secrets 中设置：
+VPS 单机（第 1 节）或 Vercel（第 0 节）都不需要本节；只有当后台与前台
+分处两台机器、又不想在本机构建时才使用此模式——由 GitHub Actions 担任
+免费构建机。在 GitHub Actions Secrets 中设置：
 
 - CONTENT_API_URL：后台的只读公开接口地址（GitHub Actions 必须能够访问），例如 https://admin.example.com/api/public
 - NEXT_PUBLIC_SITE_URL：前台最终域名
