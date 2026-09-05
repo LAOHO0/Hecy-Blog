@@ -1184,6 +1184,9 @@ kbd {
 .field {
   display: grid;
   gap: 7px;
+  /* 两列等高布局里，矮字段（无帮助文字）的剩余空间会被均分到各行，
+     导致输入框被撑高、与相邻字段错位；收紧到内容高度即可对齐。 */
+  align-content: start;
 }
 
 .field.full {
