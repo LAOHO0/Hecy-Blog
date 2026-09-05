@@ -26,15 +26,29 @@ export function SiteHeader({
           <span className="site-brand-label">{settings.title}</span>
         </Link>
         <nav aria-label="主导航" className="site-nav">
-          {navigation.map((item) => (
-            <Link
-              aria-current={active === item.href ? "page" : undefined}
-              href={item.href}
-              key={item.href}
-            >
-              {item.href === "/blog" ? "博客" : item.label}
-            </Link>
-          ))}
+          {navigation.map((item, index) => {
+            const external = /^https?:\/\//.test(item.href);
+            // biome-ignore lint/suspicious/noArrayIndexKey: 导航项内容可完全相同，顺序即语义
+            const key = `${index}-${item.href}`;
+            return external ? (
+              <a
+                href={item.href}
+                key={key}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {item.label} <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              <Link
+                aria-current={active === item.href ? "page" : undefined}
+                href={item.href}
+                key={key}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
           <SiteThemeToggle />
         </nav>
       </div>

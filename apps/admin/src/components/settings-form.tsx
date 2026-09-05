@@ -42,22 +42,6 @@ function errorTab(key: string): TabKey {
   return "basic";
 }
 
-function linksToText(items: { label: string; url: string }[]) {
-  return items.map((item) => `${item.label} | ${item.url}`).join("\n");
-}
-
-function textToLinks(value: string) {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label, ...rest] = line.split("|");
-      return { label: label.trim(), url: rest.join("|").trim() };
-    })
-    .filter((item) => item.label && item.url);
-}
-
 function isSafeLink(value: string) {
   if (value.startsWith("/") || value.startsWith("#")) {
     return !value.startsWith("//");
@@ -68,6 +52,8 @@ function isSafeLink(value: string) {
     return false;
   }
 }
+
+const LINK_LIMITS = { label: 60, url: 500, count: 20 } as const;
 
 const CUSTOM_ICON = "__custom";
 
@@ -81,11 +67,7 @@ function isImageIcon(icon: string) {
   }
 }
 
-function validateSettings(
-  settings: SiteSettings,
-  socialText: string,
-  navigationText: string,
-): SettingsErrors {
+function validateSettings(settings: SiteSettings): SettingsErrors {
   const errors: SettingsErrors = {};
   const home = settings.homepage;
 
@@ -143,22 +125,33 @@ function validateSettings(
         "链接需为 http(s)、站内路径或 latest-product。";
   });
 
-  for (const [index, line] of socialText
-    .split("\n")
-    .filter((entry) => entry.trim())
-    .entries()) {
-    const url = line.split("|").slice(1).join("|").trim();
-    if (url && !isSafeLink(url))
-      errors[`social-${index}`] = "社交链接需为 http(s) 地址。";
-  }
-  for (const [index, line] of navigationText
-    .split("\n")
-    .filter((entry) => entry.trim())
-    .entries()) {
-    const href = line.split("|").slice(1).join("|").trim();
-    if (href && !isSafeLink(href))
-      errors[`navigation-${index}`] = "导航路径需为 http(s) 或 / 开头。";
-  }
+  settings.socialLinks.forEach((item, index) => {
+    if (!item.label.trim()) errors[`social-${index}-label`] = "名称不能为空。";
+    else if (item.label.trim().length > LINK_LIMITS.label)
+      errors[`social-${index}-label`] =
+        `名称不能超过 ${LINK_LIMITS.label} 字。`;
+    const url = item.url.trim();
+    if (!url) errors[`social-${index}-url`] = "链接不能为空。";
+    else if (url.length > LINK_LIMITS.url)
+      errors[`social-${index}-url`] = `链接不能超过 ${LINK_LIMITS.url} 字。`;
+    else if (!isSafeLink(url))
+      errors[`social-${index}-url`] = "社交链接需为 http(s) 地址。";
+  });
+  settings.navigation.forEach((item, index) => {
+    if (!item.label.trim())
+      errors[`navigation-${index}-label`] = "名称不能为空。";
+    else if (item.label.trim().length > LINK_LIMITS.label)
+      errors[`navigation-${index}-label`] =
+        `名称不能超过 ${LINK_LIMITS.label} 字。`;
+    const href = item.href.trim();
+    if (!href) errors[`navigation-${index}-href`] = "路径不能为空。";
+    else if (href.length > LINK_LIMITS.url)
+      errors[`navigation-${index}-href`] =
+        `路径不能超过 ${LINK_LIMITS.url} 字。`;
+    else if (!isSafeLink(href))
+      errors[`navigation-${index}-href`] =
+        "路径需为 http(s)、/ 或 # 开头，例如 /blog 或 https://…";
+  });
   return errors;
 }
 
@@ -218,14 +211,6 @@ function RowActions({
 
 export function SettingsForm({ initial }: { initial: SiteSettings }) {
   const [settings, setSettings] = useState(initial);
-  const [socialText, setSocialText] = useState(
-    linksToText(initial.socialLinks),
-  );
-  const [navigationText, setNavigationText] = useState(
-    linksToText(
-      initial.navigation.map((item) => ({ label: item.label, url: item.href })),
-    ),
-  );
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
   const [errors, setErrors] = useState<SettingsErrors>({});
   const [notice, setNotice] = useState("");
@@ -237,6 +222,12 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
   );
   const [nowKeys, setNowKeys] = useState(() =>
     initial.homepage.nowItems.map(() => crypto.randomUUID()),
+  );
+  const [socialKeys, setSocialKeys] = useState(() =>
+    initial.socialLinks.map(() => crypto.randomUUID()),
+  );
+  const [navKeys, setNavKeys] = useState(() =>
+    initial.navigation.map(() => crypto.randomUUID()),
   );
 
   const home = settings.homepage;
@@ -330,8 +321,70 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
     setNowKeys((keys) => [...keys, crypto.randomUUID()]);
   }
 
+  function updateSocial(
+    index: number,
+    patch: Partial<{ label: string; url: string }>,
+  ) {
+    update(
+      "socialLinks",
+      settings.socialLinks.map((item, i) =>
+        i === index ? { ...item, ...patch } : item,
+      ),
+    );
+  }
+
+  function addSocial() {
+    if (settings.socialLinks.length >= LINK_LIMITS.count) return;
+    update("socialLinks", [...settings.socialLinks, { label: "", url: "" }]);
+    setSocialKeys((keys) => [...keys, crypto.randomUUID()]);
+  }
+
+  function removeSocial(index: number) {
+    update(
+      "socialLinks",
+      settings.socialLinks.filter((_, i) => i !== index),
+    );
+    setSocialKeys((keys) => keys.filter((_, i) => i !== index));
+  }
+
+  function moveSocial(from: number, to: number) {
+    update("socialLinks", moveItem(settings.socialLinks, from, to));
+    setSocialKeys((keys) => moveItem(keys, from, to));
+  }
+
+  function updateNav(
+    index: number,
+    patch: Partial<{ label: string; href: string }>,
+  ) {
+    update(
+      "navigation",
+      settings.navigation.map((item, i) =>
+        i === index ? { ...item, ...patch } : item,
+      ),
+    );
+  }
+
+  function addNav() {
+    if (settings.navigation.length >= LINK_LIMITS.count) return;
+    update("navigation", [...settings.navigation, { label: "", href: "" }]);
+    setNavKeys((keys) => [...keys, crypto.randomUUID()]);
+  }
+
+  function removeNav(index: number) {
+    update(
+      "navigation",
+      settings.navigation.filter((_, i) => i !== index),
+    );
+    setNavKeys((keys) => keys.filter((_, i) => i !== index));
+  }
+
+  function moveNav(from: number, to: number) {
+    update("navigation", moveItem(settings.navigation, from, to));
+    setNavKeys((keys) => moveItem(keys, from, to));
+  }
+
   function save() {
-    const nextErrors = validateSettings(settings, socialText, navigationText);
+    const nextErrors = validateSettings(settings);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       const firstKey = Object.keys(nextErrors)[0];
@@ -345,10 +398,13 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...settings,
-          socialLinks: textToLinks(socialText),
-          navigation: textToLinks(navigationText).map((item) => ({
-            label: item.label,
-            href: item.url,
+          socialLinks: settings.socialLinks.map((item) => ({
+            label: item.label.trim(),
+            url: item.url.trim(),
+          })),
+          navigation: settings.navigation.map((item) => ({
+            label: item.label.trim(),
+            href: item.href.trim(),
           })),
         }),
       });
@@ -475,22 +531,121 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
                 <span className="field-error">{errors.headline}</span>
               ) : null}
             </label>
-            <label className="field full">
-              <span className="field-label">社交链接（每行：名称 | URL）</span>
-              <textarea
-                className="textarea short"
-                onChange={(event) => setSocialText(event.target.value)}
-                value={socialText}
-              />
-            </label>
-            <label className="field full">
-              <span className="field-label">导航（每行：名称 | 路径）</span>
-              <textarea
-                className="textarea short"
-                onChange={(event) => setNavigationText(event.target.value)}
-                value={navigationText}
-              />
-            </label>
+            <div className="field full">
+              <span className="field-label-with-count">
+                社交链接（{settings.socialLinks.length}/{LINK_LIMITS.count}）
+              </span>
+              <div className="skill-editor">
+                {settings.socialLinks.map((item, index) => (
+                  <div className="editor-row" key={socialKeys[index]}>
+                    <input
+                      aria-label={`社交链接 ${index + 1} 名称`}
+                      className={`input${errors[`social-${index}-label`] ? " invalid" : ""}`}
+                      onChange={(event) =>
+                        updateSocial(index, { label: event.target.value })
+                      }
+                      placeholder="名称，如 GitHub"
+                      value={item.label}
+                    />
+                    <input
+                      aria-label={`社交链接 ${index + 1} 地址`}
+                      className={`input${errors[`social-${index}-url`] ? " invalid" : ""}`}
+                      onChange={(event) =>
+                        updateSocial(index, { url: event.target.value })
+                      }
+                      placeholder="https://github.com/…"
+                      value={item.url}
+                    />
+                    <RowActions
+                      count={settings.socialLinks.length}
+                      index={index}
+                      label="社交链接"
+                      onMove={moveSocial}
+                      onRemove={() => removeSocial(index)}
+                    />
+                    {errors[`social-${index}-label`] ? (
+                      <span className="field-error row-error">
+                        {errors[`social-${index}-label`]}
+                      </span>
+                    ) : null}
+                    {errors[`social-${index}-url`] ? (
+                      <span className="field-error row-error">
+                        {errors[`social-${index}-url`]}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <span className="row-actions">
+                <button
+                  className="button secondary"
+                  disabled={settings.socialLinks.length >= LINK_LIMITS.count}
+                  onClick={addSocial}
+                  type="button"
+                >
+                  <Icon name="plus" />
+                  添加社交链接
+                </button>
+              </span>
+            </div>
+            <div className="field full">
+              <span className="field-label-with-count">
+                导航（{settings.navigation.length}/{LINK_LIMITS.count}
+                ，支持站内路径和外部链接）
+              </span>
+              <div className="skill-editor">
+                {settings.navigation.map((item, index) => (
+                  <div className="editor-row" key={navKeys[index]}>
+                    <input
+                      aria-label={`导航 ${index + 1} 名称`}
+                      className={`input${errors[`navigation-${index}-label`] ? " invalid" : ""}`}
+                      onChange={(event) =>
+                        updateNav(index, { label: event.target.value })
+                      }
+                      placeholder="名称，如 友情链接"
+                      value={item.label}
+                    />
+                    <input
+                      aria-label={`导航 ${index + 1} 路径`}
+                      className={`input${errors[`navigation-${index}-href`] ? " invalid" : ""}`}
+                      onChange={(event) =>
+                        updateNav(index, { href: event.target.value })
+                      }
+                      placeholder="/blog 或 https://…"
+                      value={item.href}
+                    />
+                    <RowActions
+                      count={settings.navigation.length}
+                      index={index}
+                      label="导航"
+                      onMove={moveNav}
+                      onRemove={() => removeNav(index)}
+                    />
+                    {errors[`navigation-${index}-label`] ? (
+                      <span className="field-error row-error">
+                        {errors[`navigation-${index}-label`]}
+                      </span>
+                    ) : null}
+                    {errors[`navigation-${index}-href`] ? (
+                      <span className="field-error row-error">
+                        {errors[`navigation-${index}-href`]}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <span className="row-actions">
+                <button
+                  className="button secondary"
+                  disabled={settings.navigation.length >= LINK_LIMITS.count}
+                  onClick={addNav}
+                  type="button"
+                >
+                  <Icon name="plus" />
+                  添加导航
+                </button>
+              </span>
+            </div>
           </div>
         ) : null}
 

@@ -687,7 +687,50 @@ a:focus-visible {
 
 .word-rotate-value {
   display: inline-block;
-  animation: word-rotate-in 260ms ease-out both;
+  animation: word-rotate-in 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* 逐字点亮标题：底层浅色幽灵全文，上层字符错峰模糊上浮 */
+.char-reveal {
+  position: relative;
+  display: inline-block;
+}
+
+.char-reveal-ghost {
+  color: var(
+    --char-ghost,
+    color-mix(in srgb, var(--foreground) 13%, transparent)
+  );
+  user-select: none;
+}
+
+.char-reveal-live {
+  inset: 0;
+  position: absolute;
+  white-space: pre-wrap;
+}
+
+.char-reveal-char {
+  display: inline-block;
+  white-space: pre;
+  animation: char-reveal 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* 滚动/入场渐显容器 */
+.reveal {
+  filter: blur(8px);
+  opacity: 0;
+  transform: translateY(1rem);
+  transition:
+    opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reveal.is-visible {
+  filter: blur(0);
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .home-section-heading {
@@ -1484,21 +1527,37 @@ a:focus-visible {
   }
 }
 
-@keyframes word-rotate-in {
+@keyframes char-reveal {
   from {
     opacity: 0;
-    transform: translateY(0.65em);
+    filter: blur(6px);
+    transform: translateY(0.45em);
   }
   to {
     opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes word-rotate-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(85%);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
     transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  /* 首页的一次性入场动画豁免降级（站长要求始终播放），其余动画仍尊重系统设置。 */
+  *:not(.char-reveal-char):not(.reveal):not(.word-rotate-value),
+  *:not(.char-reveal-char):not(.reveal):not(.word-rotate-value)::before,
+  *:not(.char-reveal-char):not(.reveal):not(.word-rotate-value)::after {
     /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override component transitions. */
     scroll-behavior: auto !important;
     /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override component animations. */
@@ -1507,10 +1566,6 @@ a:focus-visible {
     animation-iteration-count: 1 !important;
     /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override component transitions. */
     transition-duration: 0.001ms !important;
-  }
-
-  .word-rotate-value {
-    animation: none;
   }
 }
 

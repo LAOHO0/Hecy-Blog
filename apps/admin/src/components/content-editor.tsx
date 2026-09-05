@@ -1,6 +1,5 @@
 "use client";
 
-import { parseMarkdown } from "@hecy/content/markdown";
 import type {
   ContentRecord,
   ContentVersion,
