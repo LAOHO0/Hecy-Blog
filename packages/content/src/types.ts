@@ -11,6 +11,8 @@ export type ProductFields = {
   price?: string;
   url?: string;
   platform?: string;
+  /** 产品图标：http(s) 图片链接或站内路径；缺省时前台按 slug 回落内置图标 */
+  icon?: string;
 };
 
 export type ProjectFields = {

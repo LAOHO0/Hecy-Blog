@@ -17,11 +17,32 @@ const httpUrl = z
 
 const optionalHttpUrl = httpUrl.optional().or(z.literal(""));
 
+// 图标允许站内路径（如 /imgs/logo.webp），也允许 http(s) 图片链接
+const optionalIcon = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) => {
+      if (!value) return true;
+      if (value.startsWith("/") && !value.startsWith("//")) return true;
+      try {
+        const protocol = new URL(value).protocol;
+        return protocol === "http:" || protocol === "https:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "图标只支持 http(s) 链接或以 / 开头的站内路径。" },
+  )
+  .optional();
+
 export const productFieldsSchema = z.object({
   status: z.enum(["live", "beta", "paused"]),
   price: z.string().trim().max(80).optional(),
   url: optionalHttpUrl,
   platform: z.string().trim().max(120).optional(),
+  icon: optionalIcon,
 });
 
 export const projectFieldsSchema = z.object({

@@ -25,12 +25,17 @@ function ShowcaseIcon({
   item: ContentRecord;
   type: ShowcaseType;
 }) {
+  const icon = type === "product" ? item.product?.icon?.trim() : undefined;
   return (
     <span
       aria-hidden="true"
       className={`product-icon ${item.slug || "default"}`}
     >
-      <ProductIconForSlug slug={type === "project" ? "project" : item.slug} />
+      {icon ? (
+        <img alt="" className="product-img" src={icon} />
+      ) : (
+        <ProductIconForSlug slug={type === "project" ? "project" : item.slug} />
+      )}
     </span>
   );
 }

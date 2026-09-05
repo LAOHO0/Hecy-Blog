@@ -29,6 +29,7 @@ type EditorData = {
   productPrice: string;
   productUrl: string;
   productPlatform: string;
+  productIcon: string;
   projectRole: string;
   projectPeriod: string;
   projectTechStack: string;
@@ -71,6 +72,7 @@ function fromRecord(
     productPrice: record?.product?.price || "",
     productUrl: record?.product?.url || "",
     productPlatform: record?.product?.platform || "",
+    productIcon: record?.product?.icon || "",
     projectRole: record?.project?.role || "",
     projectPeriod: record?.project?.period || "",
     projectTechStack: record?.project?.techStack.join(", ") || "",
@@ -117,6 +119,7 @@ function toPayload(data: EditorData) {
             price: data.productPrice.trim(),
             url: data.productUrl.trim(),
             platform: data.productPlatform.trim(),
+            icon: data.productIcon.trim(),
           },
         }
       : {}),
@@ -687,6 +690,21 @@ export function ContentEditor({
                     placeholder="https://…"
                     value={data.productUrl}
                   />
+                </label>
+                <label className="field">
+                  <span className="field-label">产品图标</span>
+                  <input
+                    className="input"
+                    onChange={(event) =>
+                      update("productIcon", event.target.value)
+                    }
+                    placeholder="图标图片地址，如 https://… 或 /imgs/logo.webp"
+                    value={data.productIcon}
+                  />
+                  <span className="field-help">
+                    首页产品卡片左上角图标。可粘贴媒体库图片地址；留空时按内容
+                    slug 显示内置图标。
+                  </span>
                 </label>
               </div>
             </FieldGroup>

@@ -115,9 +115,14 @@ function NowItemCopy({
 }
 
 function ProductMark({ item }: { item: ContentRecord }) {
+  const icon = item.product?.icon?.trim();
   return (
     <span aria-hidden="true" className={`product-icon ${item.slug}`}>
-      <ProductIconForSlug slug={item.slug} />
+      {icon ? (
+        <img alt="" className="product-img" src={icon} />
+      ) : (
+        <ProductIconForSlug slug={item.slug} />
+      )}
     </span>
   );
 }
