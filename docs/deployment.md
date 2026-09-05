@@ -235,3 +235,34 @@ VPS 单机（第 1 节）或 Vercel（第 0 节）都不需要本节；只有当
 - 后台：admin.未来域名
 
 代码中没有写死域名，均通过环境变量读取。
+
+## 6. 常见问题排查
+
+### 后台页面提示"页面加载失败"或"设置读取失败"
+
+这是数据库读取失败，最常见原因是**数据库未初始化**（表不存在）。处理顺序：
+
+1. 看页面上红条/错误摘要里的具体信息（新版后台会直接显示原因，不再整页白屏）。
+2. Docker 部署：确认容器日志里有没有 `[entrypoint] 同步数据库结构` 的输出：
+   ~~~bash
+   docker compose logs admin --tail 50
+   ~~~
+   新版镜像启动时会自动执行 `db:push`（建表）+ 空库种子；如果容器反复重启，
+   日志里会有具体报错（多数是 `.env` 凭据缺失或数据库连不上）。
+3. 宿主机部署：手动执行一次 `pnpm db:push`（在仓库根目录，需 DATABASE_URL）。
+4. 修复后页面无需重启即可恢复；`docker compose restart admin` 可强制重跑初始化。
+
+### 后台点发布后前台没更新
+
+1. 打开后台"构建"页看该条构建记录的状态与失败摘要：
+   - 本机模式（`BUILD_MODE=local`）：失败原因（含构建日志末尾）直接写在记录里，
+     常见为 `CONTENT_API_URL` 不可达或前台目录缺 `.env.local`。
+   - Vercel 模式：Deploy Hook 无状态回传，去 Vercel 控制台看部署结果。
+   - GitHub Actions 模式：去 Actions 页看工作流日志。
+2. Docker 方式确认宿主机 Nginx 的 root 指向的是 `site-out/`（不是 `apps/site/out`）。
+
+### 后台登录后提示密码错误
+
+检查 `.env` 里的 `ADMIN_PASSWORD_HASH` 是否被改过。bcrypt 哈希中的 `$`
+必须转义为 `$$`（`scripts/docker-init.sh` 生成时会自动处理）；手动编辑
+`.env` 后需要 `docker compose up -d` 重建容器生效。
