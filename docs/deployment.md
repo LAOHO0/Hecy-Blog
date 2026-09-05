@@ -78,16 +78,37 @@ git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
 
 `--init` 会先生成 `apps/admin/.env.local` 模板并退出，填好必填项（见 1.4）后重新执行即可。后台以 systemd 服务运行（`hecy-admin`），仅监听 `127.0.0.1:3001`，由 Nginx 反代对外。脚本默认安装目录为 `/opt/hecy-blog`，可用 `APP_DIR=/your/path` 覆盖。
 
-### 方式 B：Docker Compose
+### 方式 B：Docker Compose（多项目共用一台 VPS 时推荐）
+
+compose 里已内置 `BUILD_MODE=local`：后台点发布会在**容器内**直接重建前台，
+静态产物落到仓库根目录的 `site-out/`（bind mount），宿主机 Nginx 直接指向该目录。
+最适合一台 VPS 跑多个项目、不想让本项目的 Node/PostgreSQL 污染全局环境的情况。
 
 ~~~bash
 git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
-cp .env.example .env.deploy    # 填好必填项（DATABASE_URL 会被 compose 覆盖为容器内地址）
-docker compose up -d --build   # 同时启动 PostgreSQL + 后台
-docker compose exec admin pnpm db:push
+cp .env.example .env.deploy    # 必填：ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET / ADMIN_ORIGIN
+                               # 以及 NEXT_PUBLIC_SITE_URL（前台域名，构建时写入页面链接）
+docker compose up -d --build   # 一键启动 PostgreSQL + 后台
+docker compose exec admin pnpm db:push   # 初始化表结构（首次一次即可）
 ~~~
 
-更新版本同样是 `git pull && docker compose up -d --build`。两个方案都只把端口绑在 `127.0.0.1`，务必由 Nginx/Caddy 反代并配置 HTTPS 后再对外。
+验证部署成功：浏览器打开 `ADMIN_ORIGIN` 能看到后台登录页即正常。此后在后台点"发布"，约半分钟后 `site-out/` 内容更新，前台自动生效。更新版本同样是 `git pull && docker compose up -d --build`。
+
+Nginx 前台 server 块把 root 指向产物目录即可（假设仓库克隆在 `/opt/Hecy-Blog`）：
+
+~~~nginx
+server {
+    listen 443 ssl http2;
+    server_name www.example.com;
+    root /opt/Hecy-Blog/site-out;
+    index index.html;
+    location / {
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+}
+~~~
+
+后台（3001）仍按 1.3 的反代方式配置。端口只绑定在 `127.0.0.1`，务必由 Nginx/Caddy 反代并配置 HTTPS 后再对外。
 
 ### 1.3 Nginx 反代参考
 
@@ -121,7 +142,7 @@ server {
 
 ### 1.4 环境变量与构建模式
 
-`apps/admin/.env.local` 必填项：
+方式 A（宿主机直跑）的 `apps/admin/.env.local` 必填项：
 
 - DATABASE_URL（本机 PostgreSQL 形如 `postgresql://hecy:密码@127.0.0.1:5432/hecy`）
 - ADMIN_USERNAME、ADMIN_PASSWORD_HASH、AUTH_SECRET
@@ -129,14 +150,19 @@ server {
 - BUILD_MODE=local（启用本机构建）
 - SITE_BUILD_DIR（可选；前台代码目录，默认 `<安装目录>/apps/site`）
 
-本机构建还需要前台目录有 `apps/site/.env.local`，至少包含：
+方式 B（Docker）无需手工设置这些：compose 已内置 `BUILD_MODE=local`、
+`SITE_BUILD_DIR=/app/apps/site` 与容器内的 `CONTENT_API_URL`，你只需要在
+`.env.deploy` 填管理员凭据、`ADMIN_ORIGIN` 和 `NEXT_PUBLIC_SITE_URL`。
+
+宿主机方式还需要前台目录有 `apps/site/.env.local`，至少包含：
 
 - CONTENT_API_URL=http://127.0.0.1:3001/api/public（本机后台只读接口）
 - NEXT_PUBLIC_SITE_URL=https://www.example.com（前台最终域名）
 
 工作方式：后台点"发布"→ 数据库状态更新 → 后台以子进程在前台目录执行
 `pnpm exec next build` → 构建从 `CONTENT_API_URL` 读取已发布内容生成
-`apps/site/out` → 成功/失败状态直接写回后台"构建"页（无需任何回调 Secret）。
+`apps/site/out`（Docker 方式经挂载落到仓库根目录 `site-out/`）→
+成功/失败状态直接写回后台"构建"页（无需任何回调 Secret）。
 
 `BUILD_MODE` 三种取值并存，按需选择：
 
@@ -145,6 +171,8 @@ server {
 
 ## 2. 准备 PostgreSQL
 
+方式 B（Docker）自带 PostgreSQL，跳过本节。方式 A 或本地开发：
+
 ~~~powershell
 docker compose up -d postgres
 pnpm install
@@ -152,8 +180,7 @@ pnpm db:push
 pnpm db:seed
 ~~~
 
-生产环境请使用托管 PostgreSQL，并设置每日备份与 7–30 天保留周期。
-仓库中的 `docker-compose.yml` 仅用于本地开发，数据库端口只绑定到 `127.0.0.1`；生产环境不要直接暴露 PostgreSQL。
+生产环境请使用托管 PostgreSQL 或带数据卷的容器（compose 已挂载 `hecy_blog_postgres` 卷），并设置每日备份与 7–30 天保留周期。数据库端口只绑定到 `127.0.0.1`，不要直接暴露 PostgreSQL。
 
 ## 3. 配置后台
 

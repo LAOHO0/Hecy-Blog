@@ -1,0 +1,15 @@
+**/node_modules
+**/.next
+**/out
+**/dist
+**/.turbo
+**/.vercel
+**/coverage
+**/*.log
+**/.env
+**/.env.*
+**/tsconfig.tsbuildinfo
+site-out
+work
+.github
+docs

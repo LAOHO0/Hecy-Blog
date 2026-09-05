@@ -19,10 +19,13 @@ services:
 
   # 后台管理服务。首次使用：
   #   1) 在仓库根目录创建 .env.deploy（参考 .env.example，至少配置
-  #      DATABASE_URL / ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET /
-  #      ADMIN_ORIGIN / BUILD_WEBHOOK_SECRET）
+  #      ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET / ADMIN_ORIGIN）
   #   2) docker compose up -d --build
   #   3) 初始化表结构：docker compose exec admin pnpm db:push
+  #
+  # BUILD_MODE=local：后台点发布时在容器内直接重建前台（无需 GitHub/Vercel），
+  # 静态产物经 ./site-out 挂载落盘到仓库根目录的 site-out/，宿主机 Nginx
+  # 直接把 root 指向该目录即可。容器内 localhost:3001 就是后台自己的 API。
   admin:
     build:
       context: .
@@ -35,8 +38,15 @@ services:
       NODE_ENV: production
       # 容器内访问同 compose 网络里的 PostgreSQL，覆盖连接串主机名
       DATABASE_URL: postgresql://hecy:hecy@postgres:5432/hecy_blog
+      # 本机构建：前台代码在镜像内的固定路径，产物写入挂载卷
+      BUILD_MODE: local
+      SITE_BUILD_DIR: /app/apps/site
+      CONTENT_API_URL: http://127.0.0.1:3001/api/public
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
     ports:
       - "127.0.0.1:3001:3001"
+    volumes:
+      - ./site-out:/app/apps/site/out
     depends_on:
       postgres:
         condition: service_healthy
