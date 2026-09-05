@@ -58,7 +58,25 @@ jobs:
           CONTENT_API_URL: ${{ secrets.CONTENT_API_URL }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
           ALLOW_SEED_FALLBACK: ${{ secrets.ALLOW_SEED_FALLBACK }}
-        run: pnpm --filter @hecy/site build
+        shell: bash
+        run: |
+          # 未配置内容 API 时回退到仓库种子内容，保证流水线可运行；
+          # 配置 Secrets 后自动切换为真实数据，无需改动本文件。
+          if [[ -z "$CONTENT_API_URL" ]]; then
+            if [[ -n "$ALLOW_SEED_FALLBACK" && "$ALLOW_SEED_FALLBACK" != "true" ]]; then
+              echo "::error::CONTENT_API_URL 未配置，且 ALLOW_SEED_FALLBACK 不是 true，无法构建。"
+              exit 1
+            fi
+            echo "::warning::未配置 CONTENT_API_URL，本次构建使用仓库内置种子内容（演示数据）。"
+            echo "::warning::正式上线请在仓库 Settings → Secrets and variables → Actions 配置 CONTENT_API_URL 与 NEXT_PUBLIC_SITE_URL。"
+            ALLOW_SEED_FALLBACK="true"
+          fi
+          if [[ -z "$NEXT_PUBLIC_SITE_URL" ]]; then
+            echo "::warning::未配置 NEXT_PUBLIC_SITE_URL，sitemap 等绝对链接将使用默认值。"
+            NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+          fi
+          export CONTENT_API_URL NEXT_PUBLIC_SITE_URL ALLOW_SEED_FALLBACK
+          pnpm --filter @hecy/site build
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:

@@ -131,11 +131,11 @@ pnpm --filter @hecy/admin exec tsx -e "import bcrypt from 'bcryptjs'; bcrypt.has
 
 在 GitHub Actions Secrets 中配置：
 
-- 必需：`CONTENT_API_URL`、`NEXT_PUBLIC_SITE_URL`
+- 必需（正式上线）：`CONTENT_API_URL`、`NEXT_PUBLIC_SITE_URL`
 - 构建状态回传：`ADMIN_ORIGIN`、`BUILD_WEBHOOK_SECRET`
 - 可选服务器部署：`DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_PATH`、`DEPLOY_SSH_KEY`、`DEPLOY_KNOWN_HOSTS`
 
-未配置服务器部署参数时，工作流只生成并保留名为 `hecy-site` 的构建产物，不会自动发布到服务器。管理后台本身是 Node.js 服务，需要单独部署，并确保 GitHub Actions 可以访问它的公开内容 API。
+未配置 `CONTENT_API_URL` 时，工作流会输出警告并回退到仓库内置的种子内容构建（演示数据），流水线不会失败；配置 Secrets 后下一次构建自动切换为真实数据。显式设置 `ALLOW_SEED_FALLBACK=false`（且未配 API）可让缺配置直接报错。未配置服务器部署参数时，工作流只生成并保留名为 `hecy-site` 的构建产物，不会自动发布到服务器。管理后台本身是 Node.js 服务，需要单独部署，并确保 GitHub Actions 可以访问它的公开内容 API。
 
 详细说明见：
 
