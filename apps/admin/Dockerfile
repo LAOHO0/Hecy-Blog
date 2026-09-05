@@ -18,7 +18,8 @@ COPY --from=deps /app/apps/admin/node_modules ./apps/admin/node_modules
 COPY --from=deps /app/packages/content/node_modules ./packages/content/node_modules
 COPY packages/content packages/content
 COPY apps/admin apps/admin
-RUN pnpm --filter @hecy/admin build
+COPY apps/site apps/site
+RUN pnpm --filter @hecy/admin build && pnpm --filter @hecy/site build
 
 FROM base AS runtime
 ENV NODE_ENV=production
@@ -31,6 +32,8 @@ COPY apps/admin/package.json apps/admin/
 # 数据库初始化脚本：容器启动时 entrypoint 会执行 db:push / seed-if-empty
 COPY apps/admin/drizzle.config.ts apps/admin/drizzle.config.ts
 COPY apps/admin/scripts apps/admin/scripts/
+# 动态渲染模式（BUILD_MODE=isr）：site 容器直接 next start 使用镜像内 .next；
+COPY --from=build /app/apps/site/.next ./apps/site/.next
 # 本机构建模式（BUILD_MODE=local）：前台源码与依赖留在镜像内，
 # 后台点发布时在容器里对 /app/apps/site 执行 next build，产物写入挂载的 out-live 卷。
 # 产物不直接写挂载点：Next.js 导出会 rm 整个 out 目录，对 bind mount 会报 EBUSY，

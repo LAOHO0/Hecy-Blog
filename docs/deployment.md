@@ -49,16 +49,20 @@ DATABASE_URL="neon连接串" pnpm db:seed
 
 4. 部署完成后绑定前台域名。
 
-### 0.4 打通"后台点发布 → 前台自动重建"
+### 0.4 内容实时生效（无需 Deploy Hook）
 
-1. 前台项目 → Settings → Deploy Hooks → 创建一个 Hook（名字随意，分支 `main`），复制生成的 URL。
-2. 把该 URL 填到后台项目的 `VERCEL_DEPLOY_HOOK_URL` 环境变量并 Redeploy 生效。
-3. 之后在后台点"发布"，会直接唤起前台在 Vercel 的重建；不再需要配置 `GITHUB_TOKEN` 等 GitHub 触发变量。
-4. 注意：Deploy Hook 触发的部署没有构建状态回调（`BUILD_WEBHOOK_SECRET`/`ADMIN_ORIGIN` 仅 GitHub Actions 模式需要），后台构建记录会停在"已触发"语义的队列态，属预期行为。
+Vercel 上前台默认运行动态渲染（与 Docker 一致）：页面按请求实时读取后台
+`CONTENT_API_URL`，**后台发布/改设置，前台刷新立即生效**——不需要 Deploy Hook、
+不需要 `GITHUB_TOKEN`，也不存在构建排队。
+
+Deploy Hook（`VERCEL_DEPLOY_HOOK_URL`）仅在你想让"推送代码"以外的场景强制
+触发一次 Vercel 重建时才有用；`BUILD_WEBHOOK_SECRET`/`ADMIN_ORIGIN` 的构建
+状态回传属于 GitHub Actions 静态模式，动态渲染下均不需要。
 
 ### 0.5 与 VPS 方案的关系
 
-两种部署可共存：后台在 VPS、前台在 Vercel 时，只需在 VPS 的 `.env.local` 里配 `VERCEL_DEPLOY_HOOK_URL`，后台点发布同样直接唤起 Vercel 重建，绕开 GitHub Actions 中转。
+两种部署可共存且行为一致：后台在 VPS、前台在 Vercel 时，内容都实时生效，
+区别只是前台进程跑在哪里。
 
 ## 1. VPS 单机部署（推荐：发布不经过 GitHub）
 
@@ -134,14 +138,15 @@ server {
     }
 }
 
-# 前台（静态文件）
+# 前台（动态渲染，实时内容）
 server {
     listen 443 ssl http2;
     server_name www.example.com;
-    root /opt/hecy-blog/apps/site/out;
-    index index.html;
     location / {
-        try_files $uri $uri/ $uri/index.html =404;
+        proxy_pass http://127.0.0.1:3002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ~~~
@@ -153,8 +158,8 @@ server {
 - DATABASE_URL（本机 PostgreSQL 形如 `postgresql://hecy:密码@127.0.0.1:5432/hecy`）
 - ADMIN_USERNAME、ADMIN_PASSWORD_HASH、AUTH_SECRET
 - ADMIN_ORIGIN（后台对外的完整地址，如 https://admin.example.com）
-- BUILD_MODE=local（启用本机构建）
-- SITE_BUILD_DIR（可选；前台代码目录，默认 `<安装目录>/apps/site`）
+- BUILD_MODE=isr（动态渲染实时生效，推荐）或 local（本机静态导出构建）
+- SITE_BUILD_DIR（仅 local 模式；前台代码目录，默认 `<安装目录>/apps/site`）
 
 方式 B（Docker）无需手工设置这些：compose 已内置 `BUILD_MODE=local`、
 `SITE_BUILD_DIR=/app/apps/site` 与容器内的 `CONTENT_API_URL`，你只需要运行
@@ -271,25 +276,31 @@ VPS 单机（第 1 节）或 Vercel（第 0 节）都不需要本节；只有当
 
 ### 首次部署后前台一片空白
 
-Docker 方式的静态产物目录 `site-out/` 初始为空：容器首次启动会**自动执行一次
-初始构建**（等后台就绪后进行，约 1 分钟），把产物同步到 `site-out/`。如果之后
-仍然空白，按顺序检查：
+Docker 动态渲染模式下前台由 site 容器（3002）按请求实时渲染，不存在空产物期：
 
-1. `docker compose logs admin | grep entrypoint` 看初始构建是否成功；
-2. 宿主机 Nginx 的 `root` 是否指向 **仓库克隆目录**下的 `site-out/`
-   （克隆在 `/root/Hecy-Blog` 就写 `/root/Hecy-Blog/site-out`，别照抄文档的
-   `/opt` 路径）；
-3. 服务器内存偏小（≤1GB）时构建可能被 OOM 杀掉，日志会体现；可在发布前
-   临时停掉其他占内存的服务，或升级内存后重试。
+1. `docker compose ps` 确认 site 容器为 healthy；未起来看
+   `docker compose logs site --tail 50`；
+2. 确认 Nginx 前台 server 块是 `proxy_pass http://127.0.0.1:3002;`（反代），
+   而不是指向静态目录；
+3. 若使用静态导出模式（`BUILD_MODE=local`），产物目录 `site-out/` 初始为空，
+   容器首次启动会自动执行一次初始构建（约 1 分钟）；仍空白时看
+   `docker compose logs admin | grep entrypoint`，并确认 Nginx root 指向
+   **实际克隆目录**下的 `site-out/`。
 
 ### 后台点发布后前台没更新
 
+动态渲染模式（`BUILD_MODE=isr`，Docker 默认）下内容**实时生效**，无需构建；
+若没生效，刷新页面并确认前台域名确实反代到了 3002 端口的 site 容器。
+
+静态构建模式的排查：
+
 1. 打开后台"构建"页看该条构建记录的状态与失败摘要：
    - 本机模式（`BUILD_MODE=local`）：失败原因（含构建日志末尾）直接写在记录里，
-     常见为 `CONTENT_API_URL` 不可达或前台目录缺 `.env.local`。
+     常见为 `CONTENT_API_URL` 不可达或前台目录缺 `.env.local`；连续发布会自动
+     排队串行执行，"已加入队列"不代表已完成。
    - Vercel 模式：Deploy Hook 无状态回传，去 Vercel 控制台看部署结果。
    - GitHub Actions 模式：去 Actions 页看工作流日志。
-2. Docker 方式确认宿主机 Nginx 的 root 指向的是 `site-out/`（不是 `apps/site/out`）。
+2. 静态模式确认宿主机 Nginx 的 root 指向的是 `site-out/`（不是 `apps/site/out`）。
 
 ### 后台登录后提示密码错误
 

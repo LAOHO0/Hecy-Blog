@@ -22,10 +22,11 @@ pnpm db:push
 echo "[entrypoint] 检查种子数据…"
 pnpm exec tsx scripts/seed-if-empty.ts
 
-# 首次部署时 site-out 是空的，前台会一直空白到第一次发布成功。
-# 等后台就绪后在后台线程补一次初始构建，让部署完前端立即可用。
-# 只有产物目录为空才构建（取不到内容或构建失败不影响后台运行）。
+# 仅静态本机构建模式（BUILD_MODE=local）需要：首次部署时 site-out 为空，
+# 等后台就绪后在后台线程补一次初始构建。动态渲染（isr）模式无静态产物，
+# site 容器按请求实时读取内容，跳过本段。
 (
+  [ "${BUILD_MODE:-}" = "local" ] || exit 0
   for i in $(seq 1 30); do
     wget -qO- http://127.0.0.1:3001/login >/dev/null 2>&1 && break
     sleep 1

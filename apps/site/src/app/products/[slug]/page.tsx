@@ -9,6 +9,9 @@ import {
 } from "@/lib/content";
 
 export async function generateStaticParams() {
+  // 服务端渲染（默认）模式不预渲染详情页：内容按请求实时生成；
+  // 仅静态导出（STATIC_EXPORT=true）时预取 slug 列表。
+  if (process.env.STATIC_EXPORT !== "true") return [];
   const [items, redirects] = await Promise.all([
     getPublishedContent("product"),
     getPublishedRedirects("product"),

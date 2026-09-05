@@ -55,6 +55,8 @@ jobs:
             --data "{\"status\":\"running\",\"commitSha\":\"${COMMIT_SHA}\"}" || echo "构建开始回调失败，继续构建。"
       - name: 构建静态前台
         env:
+          # GitHub Pages 等静态托管需要构建期快照，显式开启纯静态导出
+          STATIC_EXPORT: "true"
           CONTENT_API_URL: ${{ secrets.CONTENT_API_URL }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
           ALLOW_SEED_FALLBACK: ${{ secrets.ALLOW_SEED_FALLBACK }}

@@ -1,14 +1,29 @@
 import { defaultSettings, seedContent } from "@hecy/content/seed";
 import { normalizeSiteSettings } from "@hecy/content/settings";
 import type { ContentRecord, SiteSettings } from "@hecy/content/types";
+import { connection } from "next/server";
 
 const apiUrl = process.env.CONTENT_API_URL?.replace(/\/$/, "");
+const staticExport = process.env.STATIC_EXPORT === "true";
 const allowSeedFallback =
   process.env.NODE_ENV !== "production" ||
   process.env.ALLOW_SEED_FALLBACK === "true";
-// 静态导出在构建时读取一次并去重；开发模式实时拉取，后台改动刷新即可见。
+// STATIC_EXPORT=true（GitHub Pages 等纯静态托管）：构建时读取一次快照。
+// 默认服务端渲染：no-store，每次请求实时拉取——后台发布/改设置，刷新页面即生效。
 const fetchCache: RequestCache =
-  process.env.NODE_ENV === "development" ? "no-store" : "force-cache";
+  process.env.NODE_ENV === "development" || !staticExport
+    ? "no-store"
+    : "force-cache";
+
+/**
+ * 服务端渲染模式下把使用这些读取函数的路由标记为动态：
+ * Next 16 构建期预渲染遇到 no-store fetch 会直接报错而不是自动转动态，
+ * 这里统一在读取入口调用 connection() 表达"按请求实时渲染"。
+ * 静态导出模式不调用，构建期照常预渲染快照。
+ */
+async function dynamicSignal() {
+  if (!staticExport) await connection();
+}
 const contentTypes = ["article", "product", "project"] as const;
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -44,6 +59,7 @@ function publishedFallback(type?: ContentRecord["type"]) {
 }
 
 export async function getSiteSettings(): Promise<SiteSettings> {
+  await dynamicSignal();
   // Development/demo builds may use the checked-in snapshot. Production
   // builds must read settings from the CMS unless fallback is explicitly on.
   if (!apiUrl) {
@@ -74,6 +90,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 export async function getPublishedContent(
   type?: ContentRecord["type"],
 ): Promise<ContentRecord[]> {
+  await dynamicSignal();
   if (!apiUrl) {
     if (!allowSeedFallback) throw new Error("CONTENT_API_URL_REQUIRED");
     return publishedFallback(type);
@@ -102,6 +119,7 @@ export async function getPublishedContent(
 export async function getPublishedRedirects(
   type?: ContentRecord["type"],
 ): Promise<PublishedRedirect[]> {
+  await dynamicSignal();
   if (!apiUrl) {
     if (!allowSeedFallback) throw new Error("CONTENT_API_URL_REQUIRED");
     return [];

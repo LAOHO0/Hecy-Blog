@@ -9,8 +9,8 @@ Hecy Blog 是一个中文优先的个人内容管理与展示系统，用于发�
 - 产品状态、价格、平台、链接、图标等结构化字段
 - 项目角色、周期、技术栈、仓库、项目链接等结构化字段
 - 内容版本记录、媒体管理、站点设置和构建记录
-- 响应式静态前台，支持浅色/深色主题
-- 三种前台构建模式：VPS 本机构建（推荐）、Vercel Deploy Hook、GitHub Actions（可选 SSH 自动部署）
+- 响应式前台，支持浅色/深色主题；动态渲染发布实时生效，也可切换纯静态导出
+- 前台内容模式：动态渲染实时生效（推荐）；也可静态导出配合 VPS 本机构建 / Vercel / GitHub Actions
 - PostgreSQL 持久化，开发环境可使用内存演示数据
 
 ## 项目结构
@@ -88,9 +88,9 @@ Docker Compose 既可用于本地开发，也是 VPS 生产部署的推荐方式
 1. 登录后台，新建文章、产品或项目。
 2. 保存草稿并通过私有预览检查内容。
 3. 点击发布，将内容写入公开 API。
-4. 触发静态前台重新构建和部署。
+4. 前台内容更新。
 
-`apps/site` 使用静态导出，内容在构建时从 `CONTENT_API_URL` 读取。因此，后台发布内容后，已经部署的前台不会自动变化，必须重新构建并部署 `apps/site/out`。
+`apps/site` 默认运行动态渲染模式：页面按请求实时读取 `CONTENT_API_URL`，后台发布/修改设置后刷新前台立即可见，无需构建。仅当 `STATIC_EXPORT=true`（GitHub Pages 等纯静态托管）时才需要重新构建并部署 `apps/site/out`。
 
 生产环境推荐用 VPS 单机模式：后台配置 `BUILD_MODE=local` 后，点发布即由后台在本机直接重建前台并回写构建状态，无需 GitHub Actions 中转。Docker 部署用 `./scripts/docker-init.sh` 生成 `.env`（密码哈希自动转义、AUTH_SECRET 随机生成），再 `docker compose up -d --build` 即可，建表与种子在容器启动时自动完成。Vercel（Deploy Hook）与 GitHub Actions 两种远程模式详见 [部署说明](docs/deployment.md)。
 
@@ -117,7 +117,7 @@ pnpm --filter @hecy/site build
 - 后台：`DATABASE_URL`、`ADMIN_USERNAME`、`ADMIN_PASSWORD_HASH`、`AUTH_SECRET`、`ADMIN_ORIGIN`
 - 前台构建：`CONTENT_API_URL`、`NEXT_PUBLIC_SITE_URL`
 - 构建回调：`BUILD_WEBHOOK_SECRET`（仅 GitHub Actions 模式需要）
-- 构建模式三选一：`BUILD_MODE=local`（VPS 单机，推荐）/ `VERCEL_DEPLOY_HOOK_URL`（Vercel）/ `GITHUB_OWNER`、`GITHUB_REPO`、`GITHUB_TOKEN`（GitHub Actions）
+- 内容模式三选一：`BUILD_MODE=isr`（动态渲染实时生效，Docker 默认）/ `BUILD_MODE=local`（本机静态构建）/ `VERCEL_DEPLOY_HOOK_URL` 或 `GITHUB_OWNER`、`GITHUB_REPO`、`GITHUB_TOKEN`（远程静态构建）
 
 生成 bcrypt 密码哈希：
 
