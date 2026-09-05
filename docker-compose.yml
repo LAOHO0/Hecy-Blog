@@ -11,6 +11,35 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - hecy_blog_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hecy"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # 后台管理服务。首次使用：
+  #   1) 在仓库根目录创建 .env.deploy（参考 .env.example，至少配置
+  #      DATABASE_URL / ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET /
+  #      ADMIN_ORIGIN / BUILD_WEBHOOK_SECRET）
+  #   2) docker compose up -d --build
+  #   3) 初始化表结构：docker compose exec admin pnpm db:push
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: hecy-blog-admin
+    restart: unless-stopped
+    env_file:
+      - .env.deploy
+    environment:
+      NODE_ENV: production
+      # 容器内访问同 compose 网络里的 PostgreSQL，覆盖连接串主机名
+      DATABASE_URL: postgresql://hecy:hecy@postgres:5432/hecy_blog
+    ports:
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   hecy_blog_postgres:

@@ -1,5 +1,47 @@
 # 部署说明
 
+## 0. 一键部署（推荐）
+
+### 方式 A：宿主机直跑（脚本）
+
+在 VPS 上执行：
+
+~~~bash
+git clone https://github.com/LAOHO0/blog-test.git && cd blog-test
+./scripts/deploy.sh --init     # 首次：装依赖、建表、生成 systemd 服务
+./scripts/deploy.sh            # 以后每次更新：拉取最新代码并重建重启
+~~~
+
+`--init` 会先生成 `apps/admin/.env.local` 模板并退出，填好 `DATABASE_URL`、`ADMIN_PASSWORD_HASH`、`AUTH_SECRET`、`ADMIN_ORIGIN`、`BUILD_WEBHOOK_SECRET` 后重新执行即可。后台以 systemd 服务运行（`hecy-admin`），仅监听 `127.0.0.1:3001`，由 Nginx 反代对外。脚本默认安装目录为 `/opt/hecy-blog`，可用 `APP_DIR=/your/path` 覆盖。
+
+### 方式 B：Docker Compose
+
+~~~bash
+git clone https://github.com/LAOHO0/blog-test.git && cd blog-test
+cp .env.example .env.deploy    # 填好必填项（DATABASE_URL 会被 compose 覆盖为容器内地址）
+docker compose up -d --build   # 同时启动 PostgreSQL + 后台
+docker compose exec admin pnpm db:push
+~~~
+
+更新版本同样是 `git pull && docker compose up -d --build`。两个方案都只把端口绑在 `127.0.0.1`，务必由 Nginx/Caddy 反代并配置 HTTPS 后再对外。
+
+### Nginx 反代参考
+
+~~~nginx
+server {
+    listen 443 ssl http2;
+    server_name admin.example.com;
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+~~~
+
+前台静态文件在 GitHub Actions 构建完成后由 rsync 自动部署（配置 `DEPLOY_*` Secrets），或手动从 Actions 产物 `hecy-site` 下载解压到 Web 目录。
+
 ## 1. 准备 PostgreSQL
 
 ~~~powershell
