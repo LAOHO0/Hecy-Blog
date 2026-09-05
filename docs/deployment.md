@@ -1,6 +1,66 @@
 # 部署说明
 
-## 0. 一键部署（推荐）
+## 0. Vercel 部署（方案 B，全平台托管）
+
+前后台拆成 Vercel 上的两个项目，共用一个托管 PostgreSQL（推荐 Neon 免费套餐）。
+此方案无需 VPS；若你已有 VPS，后台也可以按第 1 节部署在 VPS 上，只把前台交给 Vercel（此时跳过后台项目部分，`VERCEL_DEPLOY_HOOK_URL` 一样适用）。
+
+### 0.1 准备托管 PostgreSQL
+
+1. 注册 [Neon](https://neon.tech)（免费套餐足够个人博客），创建项目，复制连接串（形如 `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`）。
+2. 本地执行一次建表与种子（用同一条连接串）：
+
+~~~bash
+DATABASE_URL="neon连接串" pnpm db:push
+DATABASE_URL="neon连接串" pnpm db:seed
+~~~
+
+### 0.2 部署后台（admin 项目）
+
+1. Vercel → Add New Project → 导入 `LAOHO0/Hecy-Blog` 仓库。
+2. Root Directory 设为 `apps/admin`，框架预设 Next.js（默认即可）。
+3. 环境变量：
+
+| 变量 | 值 |
+| --- | --- |
+| `DATABASE_URL` | Neon 连接串 |
+| `DATABASE_POOL_MAX` | `1`（serverless 必配，防止打满连接数） |
+| `ADMIN_USERNAME` | 你的管理员用户名 |
+| `ADMIN_PASSWORD_HASH` | bcrypt 哈希（生成方式见第 3 节） |
+| `AUTH_SECRET` | `openssl rand -base64 32` |
+| `ADMIN_ORIGIN` | 后台的最终域名，如 `https://admin.example.com` |
+| `SITE_ORIGIN` | 前台最终域名，用于公开 API 的 CORS |
+| `VERCEL_DEPLOY_HOOK_URL` | 第 0.3 步创建的 Deploy Hook 地址 |
+| S3 五项（可选） | 需要图片上传时配置 |
+
+4. 部署完成后绑定自定义域名（如 `admin.example.com`），这个地址就是 `ADMIN_ORIGIN` 与 `CONTENT_API_URL` 的主机部分。
+
+### 0.3 部署前台（site 项目）
+
+1. Vercel → Add New Project → 再次导入同一仓库。
+2. Root Directory 设为 `apps/site`。
+3. 环境变量：
+
+| 变量 | 值 |
+| --- | --- |
+| `CONTENT_API_URL` | `https://admin.example.com/api/public` |
+| `NEXT_PUBLIC_SITE_URL` | 前台最终域名，如 `https://www.example.com` |
+| `ALLOW_SEED_FALLBACK` | 留空（生产必须走真实数据） |
+
+4. 部署完成后绑定前台域名。
+
+### 0.4 打通"后台点发布 → 前台自动重建"
+
+1. 前台项目 → Settings → Deploy Hooks → 创建一个 Hook（名字随意，分支 `main`），复制生成的 URL。
+2. 把该 URL 填到后台项目的 `VERCEL_DEPLOY_HOOK_URL` 环境变量并 Redeploy 生效。
+3. 之后在后台点"发布"，会直接唤起前台在 Vercel 的重建；不再需要配置 `GITHUB_TOKEN` 等 GitHub 触发变量。
+4. 注意：Deploy Hook 触发的部署没有构建状态回调（`BUILD_WEBHOOK_SECRET`/`ADMIN_ORIGIN` 仅 GitHub Actions 模式需要），后台构建记录会停在"已触发"语义的队列态，属预期行为。
+
+### 0.5 与 VPS 方案的关系
+
+两种部署可共存：后台在 VPS、前台在 Vercel 时，只需在 VPS 的 `.env.local` 里配 `VERCEL_DEPLOY_HOOK_URL`，后台点发布同样直接唤起 Vercel 重建，绕开 GitHub Actions 中转。
+
+## 1. VPS 一键部署
 
 ### 方式 A：宿主机直跑（脚本）
 
@@ -42,7 +102,7 @@ server {
 
 前台静态文件在 GitHub Actions 构建完成后由 rsync 自动部署（配置 `DEPLOY_*` Secrets），或手动从 Actions 产物 `hecy-site` 下载解压到 Web 目录。
 
-## 1. 准备 PostgreSQL
+## 2. 准备 PostgreSQL
 
 ~~~powershell
 docker compose up -d postgres
@@ -54,11 +114,12 @@ pnpm db:seed
 生产环境请使用托管 PostgreSQL，并设置每日备份与 7–30 天保留周期。
 仓库中的 `docker-compose.yml` 仅用于本地开发，数据库端口只绑定到 `127.0.0.1`；生产环境不要直接暴露 PostgreSQL。
 
-## 2. 配置后台
+## 3. 配置后台
 
 将 `.env.example` 复制为 `apps/admin/.env.local`，将 `apps/site/.env.example` 复制为 `apps/site/.env.local`，并至少设置：
 
 - DATABASE_URL
+- DATABASE_SSL（托管 PostgreSQL 如 Neon/Supabase 设为 `true`；连接串含 `sslmode=require` 时也会自动启用）
 - ADMIN_USERNAME
 - ADMIN_PASSWORD_HASH
 - AUTH_SECRET
@@ -75,7 +136,7 @@ pnpm db:seed
 pnpm --filter @hecy/admin exec tsx -e "import bcrypt from 'bcryptjs'; bcrypt.hash(process.argv[1], 12).then(console.log)" "你的强密码"
 ~~~
 
-## 3. 配置前台构建
+## 4. 配置前台构建
 
 在 GitHub Actions Secrets 中设置：
 
@@ -89,7 +150,7 @@ pnpm --filter @hecy/admin exec tsx -e "import bcrypt from 'bcryptjs'; bcrypt.has
 
 推送到 `main`，或从后台点击“发布”，都会触发 `site.yml`。工作流始终先上传构建产物；只有同时配置 `DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_PATH`、`DEPLOY_SSH_KEY` 和 `DEPLOY_KNOWN_HOSTS` 时才会继续通过 rsync 部署到服务器。不要在工作流中无验证地使用 `ssh-keyscan`。
 
-## 4. 域名建议
+## 5. 域名建议
 
 域名尚未确定时可以先使用：
 
