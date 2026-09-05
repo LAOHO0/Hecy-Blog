@@ -277,5 +277,6 @@ export const defaultSettings: SiteSettings = {
     { label: "关于", href: "/#about" },
   ],
   footerText: "© 2026 Hecy Blog",
+  background: { preset: "noise" },
   homepage: defaultHomepage,
 };

@@ -55,6 +55,7 @@ describe("parseSettings", () => {
           { label: "Write", content: "整理笔记。", link: "/blog" },
         ],
       },
+      background: { preset: "noise", imageUrl: undefined },
     });
   });
 

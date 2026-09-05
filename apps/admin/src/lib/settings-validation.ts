@@ -1,4 +1,6 @@
 import {
+  backgroundPresetKeys,
+  defaultBackground,
   defaultHomepage,
   homepageIconOptions,
   homepageLimits,
@@ -203,6 +205,25 @@ export function parseSettings(value: unknown): SiteSettings {
       ? defaultHomepage
       : parseHomepage(input.homepage);
 
+  // 背景设置：preset 必须在预置列表内；custom 图片必须是 http(s) 地址。
+  const bgRaw = (
+    input.background && typeof input.background === "object"
+      ? input.background
+      : {}
+  ) as Record<string, unknown>;
+  const bgPreset =
+    typeof bgRaw.preset === "string" &&
+    backgroundPresetKeys.includes(bgRaw.preset)
+      ? bgRaw.preset
+      : defaultBackground.preset;
+  let bgImageUrl: string | undefined;
+  if (typeof bgRaw.imageUrl === "string" && bgRaw.imageUrl.trim()) {
+    const url = bgRaw.imageUrl.trim();
+    if (url.length > 500) throw new Error("背景图片地址过长。");
+    if (!isSafeUrl(url)) throw new Error("背景图片必须是 http(s) 链接。");
+    bgImageUrl = url;
+  }
+
   return {
     title,
     tagline,
@@ -212,5 +233,6 @@ export function parseSettings(value: unknown): SiteSettings {
     socialLinks,
     navigation,
     homepage,
+    background: { preset: bgPreset, imageUrl: bgImageUrl },
   };
 }

@@ -583,7 +583,10 @@ export function ContentEditor({
               ) : null}
             </label>
             <label className="field">
-              <span className="field-label">排序权重</span>
+              <span className="field-label">
+                排序权重
+                <span className="field-help-inline">数字越小越靠前</span>
+              </span>
               <input
                 className="input"
                 min="0"

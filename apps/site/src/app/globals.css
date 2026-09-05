@@ -11,6 +11,7 @@
   --primary-foreground: oklch(0.985 0 0);
   --success: oklch(0.68 0.17 162);
   --warning: oklch(0.74 0.15 80);
+  --grid: oklch(0.8 0 0 / 55%);
   --font-mono: var(
     --font-mono-loaded,
     "JetBrains Mono",
@@ -47,6 +48,7 @@ html[data-theme="dark"] {
   --primary-foreground: oklch(0.205 0 0);
   --success: oklch(0.75 0.16 162);
   --warning: oklch(0.82 0.14 80);
+  --grid: oklch(1 0 0 / 10%);
 }
 
 * {
@@ -95,6 +97,53 @@ a:focus-visible {
   z-index: 1;
   min-height: 100vh;
   overflow: clip;
+}
+
+/* 后台可切换的前台背景款式 */
+.site-shell.bg-preset-grid {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.site-shell.bg-preset-dots {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--border) 80%, transparent) 1.2px,
+    transparent 1.2px
+  );
+  background-size: 26px 26px;
+}
+
+.site-shell.bg-preset-diagonal {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--grid),
+    var(--grid) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+
+.site-shell.bg-preset-glow {
+  background-image:
+    radial-gradient(
+      52rem 30rem at 12% -6%,
+      color-mix(in srgb, var(--foreground) 6%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      46rem 28rem at 92% 4%,
+      color-mix(in srgb, var(--foreground) 4%, transparent),
+      transparent
+    );
+}
+
+.site-shell.bg-custom-image {
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 .noise-texture {

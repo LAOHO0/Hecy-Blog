@@ -98,6 +98,24 @@ export const homepageIconOptions: readonly string[] = [
   ...homepageIconGroups.flatMap((group) => group.icons),
 ];
 
+/** 前台内置背景款式（后台一键切换；key 对应前台 CSS 的 bg-preset-* 类）。 */
+export const backgroundPresets = [
+  { key: "noise", name: "噪点纸感（默认）" },
+  { key: "grid", name: "极简网格" },
+  { key: "dots", name: "圆点阵" },
+  { key: "diagonal", name: "斜纹线" },
+  { key: "glow", name: "柔光渐变" },
+  { key: "plain", name: "纯色无纹理" },
+] as const;
+
+export type BackgroundPresetKey = (typeof backgroundPresets)[number]["key"];
+
+export const backgroundPresetKeys: readonly string[] = backgroundPresets.map(
+  (preset) => preset.key,
+);
+
+export const defaultBackground = { preset: "noise" } as const;
+
 export const homepageLimits = {
   greeting: 120,
   headline: 160,
@@ -184,14 +202,33 @@ function normalizeNowItems(value: unknown): HomepageSettings["nowItems"] {
   return items;
 }
 
+/** 读取背景设置的兜底逻辑：缺字段/非法值回落默认噪点背景。 */
+function normalizeBackground(
+  settings: SiteSettings,
+): SiteSettings["background"] {
+  const raw = (
+    settings as { background?: { preset?: unknown; imageUrl?: unknown } }
+  ).background;
+  const preset =
+    typeof raw?.preset === "string" && backgroundPresetKeys.includes(raw.preset)
+      ? raw.preset
+      : defaultBackground.preset;
+  const imageUrl =
+    typeof raw?.imageUrl === "string" && raw.imageUrl
+      ? raw.imageUrl
+      : undefined;
+  return { preset, imageUrl };
+}
+
 /**
- * 旧版本保存的设置没有 homepage 字段，读取时按字段补默认值，
+ * 旧版本保存的设置没有 homepage / background 字段，读取时按字段补默认值，
  * 保证升级后前后台都不会因为缺字段而报错。
  */
 export function normalizeSiteSettings(settings: SiteSettings): SiteSettings {
   const raw = (settings as { homepage?: Partial<HomepageSettings> }).homepage;
   return {
     ...settings,
+    background: normalizeBackground(settings),
     homepage: {
       greeting: text(raw?.greeting, defaultHomepage.greeting),
       headline: text(raw?.headline, defaultHomepage.headline),

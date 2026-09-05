@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  backgroundPresets,
   homepageIconGroups,
   homepageIconOptions,
   LATEST_PRODUCT_LINK,
@@ -107,6 +108,10 @@ function validateSettings(settings: SiteSettings): SettingsErrors {
     if (icon && !homepageIconOptions.includes(icon) && !isImageIcon(icon))
       errors[`skill-${index}-icon`] = "图标需为预置图标或图片链接。";
   });
+
+  const bgImage = settings.background.imageUrl?.trim();
+  if (bgImage && !isSafeLink(bgImage))
+    errors.backgroundImage = "背景图片必须是 http(s) 链接。";
 
   if (home.nowItems.length > limits.nowItems)
     errors.nowItems = `动态条目不能超过 ${limits.nowItems} 个。`;
@@ -644,6 +649,71 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
                   <Icon name="plus" />
                   添加导航
                 </button>
+              </span>
+            </div>
+            <div className="field full">
+              <span className="field-label">前台背景</span>
+              <div className="bg-preset-grid-editor">
+                {backgroundPresets.map((preset) => (
+                  <button
+                    aria-pressed={settings.background.preset === preset.key}
+                    className={`bg-preset-card${settings.background.preset === preset.key ? " active" : ""}`}
+                    key={preset.key}
+                    onClick={() =>
+                      update("background", {
+                        ...settings.background,
+                        preset: preset.key,
+                      })
+                    }
+                    type="button"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`bg-preset-preview preview-${preset.key}`}
+                    />
+                    <span className="bg-preset-name">{preset.name}</span>
+                  </button>
+                ))}
+              </div>
+              {settings.background.preset === "custom" ||
+              settings.background.imageUrl ? (
+                <span className="custom-icon-row">
+                  <input
+                    aria-label="背景图片地址"
+                    className={`input${errors.backgroundImage ? " invalid" : ""}`}
+                    onChange={(event) =>
+                      update("background", {
+                        ...settings.background,
+                        preset: "custom",
+                        imageUrl: event.target.value,
+                      })
+                    }
+                    placeholder="粘贴背景图片地址 https://…（留空则使用当前预设）"
+                    value={settings.background.imageUrl ?? ""}
+                  />
+                  <button
+                    className="button ghost"
+                    onClick={() =>
+                      update("background", {
+                        ...settings.background,
+                        preset:
+                          settings.background.preset === "custom"
+                            ? "noise"
+                            : settings.background.preset,
+                        imageUrl: undefined,
+                      })
+                    }
+                    type="button"
+                  >
+                    清除
+                  </button>
+                </span>
+              ) : null}
+              {errors.backgroundImage ? (
+                <span className="field-error">{errors.backgroundImage}</span>
+              ) : null}
+              <span className="link-hint">
+                预设一键切换；也可以粘贴图片地址使用自定义背景图。
               </span>
             </div>
           </div>

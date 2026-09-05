@@ -113,4 +113,9 @@ export type SiteSettings = {
   navigation: { label: string; href: string }[];
   footerText: string;
   homepage: HomepageSettings;
+  /** 前台背景：preset 为内置款，custom 走 imageUrl */
+  background: {
+    preset: string;
+    imageUrl?: string;
+  };
 };

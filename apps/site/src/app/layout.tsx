@@ -37,6 +37,7 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const settings = await getSiteSettings();
+  const background = settings.background;
 
   return (
     <html
@@ -45,8 +46,15 @@ export default async function RootLayout({
       className={`${monoFont.variable} ${uiFont.variable} ${dataFont.variable}`}
     >
       <body>
-        <div className="site-shell">
-          <NoiseTexture />
+        <div
+          className={`site-shell bg-preset-${background.preset}${background.imageUrl ? " bg-custom-image" : ""}`}
+          style={
+            background.imageUrl
+              ? { backgroundImage: `url("${background.imageUrl}")` }
+              : undefined
+          }
+        >
+          {background.preset === "noise" ? <NoiseTexture /> : null}
           <SiteHeader settings={settings} />
           <main className="site-main">{children}</main>
           <SiteFooter settings={settings} />
