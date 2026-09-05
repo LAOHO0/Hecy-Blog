@@ -81,7 +81,7 @@ pnpm db:push
 pnpm db:seed
 ```
 
-仓库中的 Docker Compose 数据库仅用于本地开发，端口只绑定到 `127.0.0.1`。生产环境应使用独立的 PostgreSQL 实例并配置备份。
+Docker Compose 既可用于本地开发，也是 VPS 生产部署的推荐方式（多项目共存时尤其合适）：数据库端口只绑定 `127.0.0.1`，不要直接对外暴露；数据经 Docker 数据卷持久化，仍需按策略备份。
 
 ## 内容发布流程
 
@@ -127,9 +127,9 @@ pnpm --filter @hecy/admin exec tsx -e "import bcrypt from 'bcryptjs'; bcrypt.has
 
 生成 `AUTH_SECRET` 时请使用至少 32 字节的随机值。真实密码、哈希、令牌和数据库连接串只能放在部署环境变量或 GitHub Secrets 中，不要提交到仓库。
 
-## GitHub Actions 与部署
+## GitHub Actions 构建（可选的远程模式）
 
-`.github/workflows/site.yml` 会在前台源码推送到 `main`、后台发送 `repository_dispatch`，或手动运行工作流时构建静态前台。
+VPS 单机（`BUILD_MODE=local`）或 Vercel 部署不需要本节；GitHub Actions 仅作为可选的远程构建模式保留。`.github/workflows/site.yml` 会在前台源码推送到 `main`、后台发送 `repository_dispatch`，或手动运行工作流时构建静态前台。
 
 在 GitHub Actions Secrets 中配置：
 
@@ -139,10 +139,9 @@ pnpm --filter @hecy/admin exec tsx -e "import bcrypt from 'bcryptjs'; bcrypt.has
 
 未配置 `CONTENT_API_URL` 时，工作流会输出警告并回退到仓库内置的种子内容构建（演示数据），流水线不会失败；配置 Secrets 后下一次构建自动切换为真实数据。显式设置 `ALLOW_SEED_FALLBACK=false`（且未配 API）可让缺配置直接报错。未配置服务器部署参数时，工作流只生成并保留名为 `hecy-site` 的构建产物，不会自动发布到服务器。管理后台本身是 Node.js 服务，需要单独部署，并确保 GitHub Actions 可以访问它的公开内容 API。
 
-详细说明见：
+部署方式的选择：单台 VPS 推荐 Docker Compose（多项目共存）或宿主机脚本；全托管可选 Vercel（前后台双项目 + Neon）。三种方式的完整步骤、Nginx 配置和环境变量清单见 [部署说明](docs/deployment.md)，其余文档：
 
 - [架构说明](docs/architecture.md)
-- [部署说明](docs/deployment.md)
 - [内容迁移说明](docs/migration.md)
 
 ## 质量检查
