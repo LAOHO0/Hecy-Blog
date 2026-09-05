@@ -7,7 +7,7 @@
 #   需要 DATABASE_URL / ADMIN_USERNAME / ADMIN_PASSWORD_HASH / AUTH_SECRET / ADMIN_ORIGIN
 set -euo pipefail
 
-REPO_URL="https://github.com/LAOHO0/blog-test.git"
+REPO_URL="https://github.com/LAOHO0/Hecy-Blog.git"
 APP_DIR="${APP_DIR:-/opt/hecy-blog}"
 SERVICE_NAME="hecy-admin"
 NODE_MAJOR=22

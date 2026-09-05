@@ -31,8 +31,8 @@ Hecy Blog 是一个中文优先的个人内容管理与展示系统，用于发�
 ## 本地运行
 
 ```powershell
-git clone https://github.com/LAOHO0/blog-test.git
-cd blog-test
+git clone https://github.com/LAOHO0/Hecy-Blog.git
+cd Hecy-Blog
 pnpm install
 
 Copy-Item .env.example apps/admin/.env.local

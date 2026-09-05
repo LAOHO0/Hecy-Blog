@@ -7,7 +7,7 @@
 在 VPS 上执行：
 
 ~~~bash
-git clone https://github.com/LAOHO0/blog-test.git && cd blog-test
+git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
 ./scripts/deploy.sh --init     # 首次：装依赖、建表、生成 systemd 服务
 ./scripts/deploy.sh            # 以后每次更新：拉取最新代码并重建重启
 ~~~
@@ -17,7 +17,7 @@ git clone https://github.com/LAOHO0/blog-test.git && cd blog-test
 ### 方式 B：Docker Compose
 
 ~~~bash
-git clone https://github.com/LAOHO0/blog-test.git && cd blog-test
+git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
 cp .env.example .env.deploy    # 填好必填项（DATABASE_URL 会被 compose 覆盖为容器内地址）
 docker compose up -d --build   # 同时启动 PostgreSQL + 后台
 docker compose exec admin pnpm db:push
