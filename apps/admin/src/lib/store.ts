@@ -889,7 +889,8 @@ export async function getSettings(): Promise<SiteSettings> {
       return normalizeSiteSettings(row.value as SiteSettings);
     }
   }
-  return clone(getMemory().settings);
+  // 内存模式同样要归一化：旧进程/旧数据可能缺 homepage、background 字段。
+  return normalizeSiteSettings(clone(getMemory().settings));
 }
 
 export async function updateSettings(settings: SiteSettings) {

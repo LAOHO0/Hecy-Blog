@@ -1195,6 +1195,13 @@ kbd {
   font-size: 10px;
 }
 
+/* 标签含行内提示时用 flex 基线对齐，纯文本标签保持原样 */
+.field-label:has(.field-help-inline) {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+}
+
 .input,
 .select,
 .textarea {
@@ -1270,12 +1277,6 @@ kbd {
 .field-help-inline {
   color: var(--faint);
   font-weight: 400;
-}
-
-.field-label {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
 }
 
 .input-large {
