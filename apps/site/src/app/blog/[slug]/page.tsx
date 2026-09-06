@@ -12,7 +12,6 @@ import {
 } from "@/lib/content";
 import { formatDisplayDate } from "@/lib/format";
 
-
 export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {

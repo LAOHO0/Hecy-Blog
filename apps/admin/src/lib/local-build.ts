@@ -41,9 +41,8 @@ async function runBuild(buildId: string): Promise<void> {
 
   try {
     await markBuild(buildId, "running", "本机构建进行中。");
-    let output: string;
     try {
-      output = await execNextBuild(siteDir);
+      await execNextBuild(siteDir);
     } catch (error) {
       // entrypoint 的初始构建可能与刚触发的发布构建撞车（同目录构建互斥），
       // 锁冲突时等待一次再重试，避免发布直接失败。
@@ -55,7 +54,7 @@ async function runBuild(buildId: string): Promise<void> {
       }
       await markBuild(buildId, "running", "检测到其他构建正在执行，等待重试…");
       await new Promise((resolve) => setTimeout(resolve, 20_000));
-      output = await execNextBuild(siteDir);
+      await execNextBuild(siteDir);
     }
 
     if (publishDir) {
@@ -68,8 +67,8 @@ async function runBuild(buildId: string): Promise<void> {
   }
 }
 
-function execNextBuild(siteDir: string): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+function execNextBuild(siteDir: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     const child = spawn("pnpm", ["exec", "next", "build"], {
       cwd: siteDir,
       env: process.env,

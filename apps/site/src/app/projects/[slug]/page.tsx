@@ -8,7 +8,6 @@ import {
   getPublishedRoute,
 } from "@/lib/content";
 
-
 export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
