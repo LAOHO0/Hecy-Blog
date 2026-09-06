@@ -76,7 +76,7 @@ services:
   site:
     build:
       context: .
-      dockerfile: apps/admin/Dockerfile
+      dockerfile: apps/site/Dockerfile
     container_name: hecy-blog-site
     restart: unless-stopped
     environment:

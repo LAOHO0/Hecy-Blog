@@ -15,7 +15,8 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "db:push": "pnpm --filter @hecy/admin db:push",
-    "db:seed": "pnpm --filter @hecy/admin db:seed"
+    "db:seed": "pnpm --filter @hecy/admin db:seed",
+    "e2e": "node scripts/e2e-check.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",

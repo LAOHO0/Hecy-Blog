@@ -15,3 +15,4 @@ coverage/
 .DS_Store
 work/
 site-out/
+gui-test-screenshots/
