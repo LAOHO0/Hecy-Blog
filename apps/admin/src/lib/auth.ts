@@ -102,10 +102,13 @@ export async function hasAdminSession() {
 }
 
 export function sessionCookieOptions() {
+  // Secure 与 ADMIN_ORIGIN 的协议对齐而非 NODE_ENV：
+  // 通过 HTTP + IP 访问的生产部署若强制 Secure，浏览器会丢弃 Cookie，
+  // 表现为"登录成功却始终保持未登录"。
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: (process.env.ADMIN_ORIGIN ?? "").startsWith("https"),
     maxAge: SESSION_TTL_SECONDS,
     path: "/",
   };
