@@ -84,8 +84,9 @@ git clone https://github.com/LAOHO0/Hecy-Blog.git && cd Hecy-Blog
 
 ### 方式 B：Docker Compose（多项目共用一台 VPS 时推荐）
 
-compose 内置 `BUILD_MODE=local`：后台点发布会在**容器内**直接重建前台，
-静态产物落到仓库根目录的 `site-out/`（bind mount），宿主机 Nginx 直接指向该目录。
+compose 启动三个容器：PostgreSQL + 后台（3001）+ 前台动态渲染服务（3002）。
+前台默认 `BUILD_MODE=isr`：按请求实时读取后台内容，**发布文章、更换主题即时生效，
+无需任何构建**，也不存在并发构建锁问题。
 最适合一台 VPS 跑多个项目、不想让本项目的 Node/PostgreSQL 污染全局环境的情况。
 
 ~~~bash
@@ -96,34 +97,20 @@ vi .env                        # 把 ADMIN_ORIGIN / NEXT_PUBLIC_SITE_URL 改成�
 docker compose up -d --build   # 一键启动；建表与空库种子由容器启动脚本自动完成
 ~~~
 
-验证部署成功：`docker compose ps` 中 admin 显示 healthy，浏览器打开 `ADMIN_ORIGIN` 能看到后台登录页即正常。此后在后台点"发布"，约半分钟后 `site-out/` 内容更新，前台自动生效。更新版本同样是 `git pull && docker compose up -d --build`（升级会自动同步数据库结构）。
+验证部署成功：`docker compose ps` 中 admin 与 site 均为 healthy，浏览器打开 `ADMIN_ORIGIN` 能看到后台登录页、打开前台域名能看到内容即正常。此后在后台点"发布"或修改设置，刷新前台立即生效。更新版本同样是 `git pull && docker compose up -d --build`（升级会自动同步数据库结构）。
 
 几个值得知道的细节：
 
 - **凭据安全**：`.env` 由 `docker-init.sh` 生成，密码哈希里的 `$` 已自动转义为 `$$`（compose 插值特性，不转义会导致"密码正确却登录不了"）；请勿手动把未转义的 bcrypt 哈希直接写进 `.env`。
 - **PostgreSQL**：账密默认 `hecy/hecy`，可在 `.env` 用 `POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB` 覆盖；宿主机 5432 端口被占用时设置 `POSTGRES_HOST_PORT=15432`。
-- **前台 Web 服务**：compose 不含 Nginx 容器——多项目 VPS 通常已有宿主机 Nginx，直接复用（见下）；需要全容器化时自行加一个 `nginx:alpine` 服务挂载 `site-out/:/usr/share/nginx/html:ro` 即可。
+- **前台 Web 服务**：compose 不含 Nginx 容器——多项目 VPS 通常已有宿主机 Nginx，直接复用（见 1.3）；需要全容器化时自行加一个 `nginx:alpine` 服务反代 `site:3002` 即可。
 
-Nginx 前台 server 块把 root 指向产物目录即可（假设仓库克隆在 `/opt/Hecy-Blog`）：
-
-~~~nginx
-server {
-    listen 443 ssl http2;
-    server_name www.example.com;
-    root /opt/Hecy-Blog/site-out;
-    index index.html;
-    location / {
-        try_files $uri $uri/ $uri/index.html =404;
-    }
-}
-~~~
-
-后台（3001）仍按 1.3 的反代方式配置。端口只绑定在 `127.0.0.1`，务必由 Nginx/Caddy 反代并配置 HTTPS 后再对外。
+Nginx 前台 server 块把请求反代到前台容器的 3002 端口（完整示例见 1.3）。后台（3001）也按 1.3 反代。端口只绑定在 `127.0.0.1`，务必由 Nginx/Caddy 反代并配置 HTTPS 后再对外。
 
 ### 1.3 Nginx 反代参考
 
-前后台各一个 server 块：后台反代 3001 端口，前台的 root 直接指向静态产物目录
-（默认模式是本机构建，产物在 `apps/site/out`；用 `SITE_BUILD_DIR` 自定义路径时按需调整）。
+前后台各一个 server 块：后台反代 3001，前台反代 3002（动态渲染，实时内容）。
+仅静态导出模式（`BUILD_MODE=local` / GitHub Pages）才用 root 指向静态产物目录。
 
 ~~~nginx
 # 后台
@@ -161,8 +148,8 @@ server {
 - BUILD_MODE=isr（动态渲染实时生效，推荐）或 local（本机静态导出构建）
 - SITE_BUILD_DIR（仅 local 模式；前台代码目录，默认 `<安装目录>/apps/site`）
 
-方式 B（Docker）无需手工设置这些：compose 已内置 `BUILD_MODE=local`、
-`SITE_BUILD_DIR=/app/apps/site` 与容器内的 `CONTENT_API_URL`，你只需要运行
+方式 B（Docker）无需手工设置这些：compose 默认 `BUILD_MODE=isr`（动态渲染），
+前台容器所需的 `CONTENT_API_URL` 等已内置，你只需要运行
 `./scripts/docker-init.sh` 生成 `.env`（管理员凭据、`ADMIN_ORIGIN`、
 `NEXT_PUBLIC_SITE_URL`），建表与空库种子也会在容器启动时自动完成。
 
@@ -171,15 +158,17 @@ server {
 - CONTENT_API_URL=http://127.0.0.1:3001/api/public（本机后台只读接口）
 - NEXT_PUBLIC_SITE_URL=https://www.example.com（前台最终域名）
 
-工作方式：后台点"发布"→ 数据库状态更新 → 后台以子进程在前台目录执行
-`pnpm exec next build` → 构建从 `CONTENT_API_URL` 读取已发布内容生成
-`apps/site/out`（Docker 方式经挂载落到仓库根目录 `site-out/`）→
-成功/失败状态直接写回后台"构建"页（无需任何回调 Secret）。
+工作方式：
 
-`BUILD_MODE` 三种取值并存，按需选择：
-
-- 未设置/其他值：走 `VERCEL_DEPLOY_HOOK_URL`（Vercel）或 `GITHUB_TOKEN` 等（GitHub Actions）远程触发。
-- `local`：本文的本机模式。注意后台进程需要有前台目录的写权限；构建失败信息会记录在后台"构建"页。
+- `BUILD_MODE=isr`（Docker 默认，推荐）：页面按请求实时读取数据库内容，
+  发布/改设置刷新即生效——没有构建环节，后台"构建"页的记录仅作操作留痕。
+- `BUILD_MODE=local`（静态导出）：后台点"发布"→ 数据库状态更新 → 后台以子进程
+  在前台目录执行 `pnpm exec next build`（连续发布自动串行排队）→ 构建从
+  `CONTENT_API_URL` 读取已发布内容生成 `apps/site/out`（Docker 方式经挂载落到
+  仓库根目录 `site-out/`）→ 成功/失败状态直接写回后台"构建"页（无需回调 Secret）。
+  注意后台进程需要有前台目录的写权限；构建失败信息会记录在后台"构建"页。
+- 未设置/其他值：走 `VERCEL_DEPLOY_HOOK_URL`（Vercel）或 `GITHUB_TOKEN` 等
+  （GitHub Actions）远程触发。
 
 ## 2. 准备 PostgreSQL
 
