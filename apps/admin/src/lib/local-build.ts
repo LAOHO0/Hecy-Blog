@@ -86,7 +86,7 @@ function execNextBuild(siteDir: string): Promise<void> {
     });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) resolve(output);
+      if (code === 0) resolve();
       else reject(new Error(output.slice(-2000) || `构建进程退出码 ${code}`));
     });
   });
