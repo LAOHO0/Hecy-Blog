@@ -22,6 +22,28 @@ import type { ContentInput } from "@hecy/content/validation";
 import { and, desc, eq, max, ne, or } from "drizzle-orm";
 import { getDatabase } from "./db";
 
+export async function getMediaById(id: string): Promise<MediaAsset | null> {
+  const db = getDatabase();
+  if (db) {
+    const [row] = await db
+      .select()
+      .from(mediaAssets)
+      .where(eq(mediaAssets.id, id))
+      .limit(1);
+    if (!row) return null;
+    return {
+      id: row.id,
+      key: row.key,
+      url: row.url,
+      mimeType: row.mimeType,
+      size: row.size,
+      alt: row.alt ?? undefined,
+      createdAt: dateValue(row.createdAt),
+    };
+  }
+  return getMemory().media.find((item) => item.id === id) ?? null;
+}
+
 type ListOptions = {
   type?: ContentRecord["type"];
   status?: ContentStatus;
@@ -964,6 +986,22 @@ export async function addMedia(asset: Omit<MediaAsset, "id" | "createdAt">) {
   }
   getMemory().media.unshift(record);
   return clone(record);
+}
+
+export async function removeMedia(id: string): Promise<boolean> {
+  const db = getDatabase();
+  if (db) {
+    const rows = await db
+      .delete(mediaAssets)
+      .where(eq(mediaAssets.id, id))
+      .returning();
+    return rows.length > 0;
+  }
+  const memory = getMemory();
+  const index = memory.media.findIndex((item) => item.id === id);
+  if (index === -1) return false;
+  memory.media.splice(index, 1);
+  return true;
 }
 
 export async function getRedirect(type: ContentRecord["type"], slug: string) {

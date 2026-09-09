@@ -22,6 +22,27 @@ export function MediaLibrary({ initial }: { initial: MediaAsset[] }) {
     }
   }
 
+  async function removeItem(item: MediaAsset) {
+    if (
+      !window.confirm(`确定删除「${item.alt || item.key}」吗？该操作不可恢复。`)
+    ) {
+      return;
+    }
+    setNotice("");
+    const response = await fetch(`/api/media/${item.id}`, { method: "DELETE" });
+    if (response.status === 404) {
+      setNotice("媒体不存在，可能已被删除。");
+      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      return;
+    }
+    if (!response.ok) {
+      setNotice("删除失败，请稍后重试。");
+      return;
+    }
+    setItems((current) => current.filter((entry) => entry.id !== item.id));
+    setNotice("媒体已删除。");
+  }
+
   function upload(file: File) {
     setNotice("");
     startTransition(async () => {
@@ -153,6 +174,14 @@ export function MediaLibrary({ initial }: { initial: MediaAsset[] }) {
               >
                 <Icon name="external" size={12} />
                 {copiedId === item.id ? "已复制" : "复制 URL"}
+              </button>
+              <button
+                className="media-copy"
+                onClick={() => void removeItem(item)}
+                type="button"
+              >
+                <Icon name="trash" size={12} />
+                删除
               </button>
             </div>
           </article>

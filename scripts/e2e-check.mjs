@@ -112,7 +112,67 @@ async function main() {
     step("清理测试文章", remove.status === 200, `HTTP ${remove.status}`);
   }
 
-  // 10. 前台首页可达
+  // 10. 媒体上传链路（local 驱动）：上传 → /media 访问 → 校验拒绝 → 删除清理
+  //     S3 驱动部署会跳过本组（预签名流程依赖外部对象存储凭据）。
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+  const png = Buffer.from(pngBase64, "base64");
+  const mediaForm = new FormData();
+  mediaForm.append(
+    "file",
+    new Blob([png], { type: "image/png" }),
+    `e2e-check-${Date.now().toString(36)}.png`,
+  );
+  const upload = await fetch(`${admin}/api/media/upload`, {
+    method: "POST",
+    headers: { Cookie: sessionCookie },
+    body: mediaForm,
+  });
+  const uploaded = await upload.json().catch(() => ({}));
+  const mediaItem = uploaded.item;
+  step(
+    "媒体上传(local)",
+    upload.status === 201 && mediaItem?.url?.startsWith("/media/"),
+    `HTTP ${upload.status}${upload.status === 409 ? " — 当前为 S3 驱动，跳过媒体链路" : ""}`,
+  );
+
+  if (mediaItem?.url) {
+    const mediaGet = await fetch(`${admin}${mediaItem.url}`);
+    const mediaBytes = Buffer.from(await mediaGet.arrayBuffer());
+    step("媒体 /media 访问且内容一致",
+      mediaGet.status === 200 && mediaBytes.equals(png),
+      `HTTP ${mediaGet.status} bytes=${mediaBytes.length}`);
+
+    const badForm = new FormData();
+    badForm.append(
+      "file",
+      new Blob([Buffer.from("not-an-image")], { type: "text/plain" }),
+      "e2e-check.txt",
+    );
+    const badUpload = await fetch(`${admin}/api/media/upload`, {
+      method: "POST",
+      headers: { Cookie: sessionCookie },
+      body: badForm,
+    });
+    step("非图片上传被拒(415)", badUpload.status === 415,
+      `HTTP ${badUpload.status}`);
+
+    const mediaList = await fetch(`${admin}/api/media`, {
+      headers: { Cookie: sessionCookie },
+    });
+    step("媒体列表包含新资产",
+      mediaList.status === 200 &&
+        JSON.stringify(await mediaList.json()).includes(mediaItem.key),
+      `HTTP ${mediaList.status}`);
+
+    const mediaDelete = await fetch(`${admin}/api/media/${mediaItem.id}`, {
+      method: "DELETE",
+      headers: { Cookie: sessionCookie },
+    });
+    step("清理测试媒体", mediaDelete.status === 200, `HTTP ${mediaDelete.status}`);
+  }
+
+  // 11. 前台首页可达
   const home = await fetch(`${site}/`);
   step("前台首页可达", home.status === 200, `HTTP ${home.status}`);
 
