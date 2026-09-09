@@ -2,6 +2,7 @@
   color-scheme: light;
   --avatar-hover-border: #b8b2ab;
   --avatar-hover-shadow: rgba(28, 28, 26, 0.3);
+  --title-hover-color: #57534e;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -53,6 +54,7 @@ html[data-theme="dark"] {
   --grid: oklch(1 0 0 / 10%);
   --avatar-hover-border: oklch(1 0 0 / 32%);
   --avatar-hover-shadow: rgba(0, 0, 0, 0.55);
+  --title-hover-color: oklch(0.85 0 0);
 }
 
 * {
@@ -382,12 +384,19 @@ a:focus-visible {
 
 .home-title {
   max-width: 672px;
+  width: fit-content;
   margin: 20px 0 24px;
   font-family: var(--font-mono);
   font-size: 24px;
   font-weight: 600;
   letter-spacing: normal;
   line-height: 30px;
+  transition: color 0.3s ease;
+}
+
+/* 签名悬停微响应：与头像呼应，悬停时文字轻微软化；幽灵字层颜色独立不受影响。 */
+.home-title:hover {
+  color: var(--title-hover-color, #57534e);
 }
 
 .home-title-reveal {
