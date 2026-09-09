@@ -136,6 +136,7 @@ export const defaultHomepage: HomepageSettings = {
   role: "前端工程师",
   location: "HangZhou",
   nowTitle: "最近在做什么",
+  sections: { about: true, blog: true, product: true, project: true },
   skills: [
     { name: "Vue", icon: "Vue" },
     { name: "Vite", icon: "Vite" },
@@ -202,6 +203,17 @@ function normalizeNowItems(value: unknown): HomepageSettings["nowItems"] {
   return items;
 }
 
+/** 首页板块开关：缺省的键补 true（显示），非法值一律视为显示。 */
+function normalizeSections(value: unknown): HomepageSettings["sections"] {
+  const raw = (value ?? {}) as Record<string, unknown>;
+  const keys = ["about", "blog", "product", "project"] as const;
+  const sections = {} as HomepageSettings["sections"];
+  for (const key of keys) {
+    sections[key] = raw[key] !== false;
+  }
+  return sections;
+}
+
 /** 读取背景设置的兜底逻辑：缺字段/非法值回落默认噪点背景。 */
 function normalizeBackground(
   settings: SiteSettings,
@@ -237,6 +249,9 @@ export function normalizeSiteSettings(settings: SiteSettings): SiteSettings {
       nowTitle: text(raw?.nowTitle, defaultHomepage.nowTitle),
       skills: normalizeSkills(raw?.skills),
       nowItems: normalizeNowItems(raw?.nowItems),
+      // 旧数据没有 sections 字段：缺哪个键就补 true（显示），不整体回退，
+      // 避免用户已保存的其它 homepage 配置被默认值覆盖。
+      sections: normalizeSections(raw?.sections),
     },
   };
 }

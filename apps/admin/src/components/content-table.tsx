@@ -19,6 +19,13 @@ export function ContentTable({ records }: { records: ContentRecord[] }) {
   const [status, setStatus] = useState<"all" | ContentRecord["status"]>("all");
   const [pending, startTransition] = useTransition();
 
+  // 前台详情页路径：文章 /blog，产品 /products，项目 /projects
+  const sectionByType: Record<ContentRecord["type"], string> = {
+    article: "blog",
+    product: "products",
+    project: "projects",
+  };
+
   const counts = useMemo(() => {
     const map: Record<typeof type, number> = {
       all: records.length,
@@ -147,6 +154,18 @@ export function ContentTable({ records }: { records: ContentRecord[] }) {
                 </td>
                 <td>
                   <div className="row-actions">
+                    {item.status === "published" ? (
+                      <a
+                        className="icon-button"
+                        href={`/${sectionByType[item.type]}/${item.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`前台查看 ${item.title}`}
+                        title="前台查看"
+                      >
+                        <Icon name="external" />
+                      </a>
+                    ) : null}
                     <Link
                       className="icon-button"
                       href={`/admin/content/${item.id}`}

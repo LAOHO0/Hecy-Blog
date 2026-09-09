@@ -96,6 +96,10 @@ export type HomepageNowItem = {
   link?: string;
 };
 
+export type HomepageSectionKey = "about" | "blog" | "product" | "project";
+
+export type HomepageSectionToggles = Record<HomepageSectionKey, boolean>;
+
 export type HomepageSettings = {
   greeting: string;
   headline: string;
@@ -104,6 +108,8 @@ export type HomepageSettings = {
   nowTitle: string;
   skills: HomepageSkill[];
   nowItems: HomepageNowItem[];
+  /** 首页板块显示开关；缺省视为全部显示。 */
+  sections: HomepageSectionToggles;
 };
 
 export type SiteSettings = {

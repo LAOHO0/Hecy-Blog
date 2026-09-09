@@ -274,6 +274,7 @@ export const defaultSettings: SiteSettings = {
     { label: "首页", href: "/" },
     { label: "博客", href: "/blog" },
     { label: "产品", href: "/products" },
+    { label: "项目", href: "/projects" },
     { label: "关于", href: "/#about" },
   ],
   footerText: "© 2026 Hecy Blog",

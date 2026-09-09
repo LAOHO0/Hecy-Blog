@@ -20,6 +20,7 @@ type HomeSectionsProps = {
   settings: SiteSettings;
   articles: ContentRecord[];
   products: ContentRecord[];
+  projects: ContentRecord[];
 };
 
 // 图标名 → 配色 class，前台 globals.css 中定义对应颜色。
@@ -155,13 +156,37 @@ function HomeProductCard({ item }: { item: ContentRecord }) {
   );
 }
 
+function HomeProjectCard({ item }: { item: ContentRecord }) {
+  const year = (item.publishedAt || item.createdAt).slice(0, 4);
+  return (
+    <Link className="product-card" href={`/projects/${item.slug}`}>
+      <div className="product-card-header">
+        <div>
+          <span aria-hidden="true" className="product-icon">
+            {item.title.slice(0, 1).toUpperCase()}
+          </span>
+          <h3 className="product-name">{item.title}</h3>
+        </div>
+        <span className="product-status">{year}</span>
+      </div>
+      <p className="product-tagline">{item.excerpt || item.slug}</p>
+      <span aria-hidden="true" className="arrow-link">
+        <ArrowUpRightIcon />
+      </span>
+    </Link>
+  );
+}
+
 export function HomeSections({
   settings,
   articles,
   products,
+  projects,
 }: HomeSectionsProps) {
   const firstProduct = products[0];
   const home = settings.homepage;
+  // 板块显示开关（后台可配置）；旧设置缺字段时归一化层已补 true。
+  const show = home.sections;
 
   return (
     <div className="home-page">
@@ -191,150 +216,188 @@ export function HomeSections({
         </Reveal>
       </section>
 
-      <Reveal>
-        <section
-          className="about-section"
-          id="about"
-          aria-labelledby="about-title"
-        >
-          <div className="about-left">
-            <p className="section-kicker">关于我</p>
-            {home.role || home.location ? (
-              <div className="about-profile">
-                {home.role ? (
-                  <span className="about-profile-role">{home.role}</span>
-                ) : null}
-                {home.location ? (
-                  <span className="about-profile-place">{home.location}</span>
-                ) : null}
-              </div>
-            ) : null}
-            {home.skills.length ? (
-              <>
-                <div className="skill-heading">
-                  <span>Skills</span>
+      {show.about ? (
+        <Reveal>
+          <section
+            className="about-section"
+            id="about"
+            aria-labelledby="about-title"
+          >
+            <div className="about-left">
+              <p className="section-kicker">关于我</p>
+              {home.role || home.location ? (
+                <div className="about-profile">
+                  {home.role ? (
+                    <span className="about-profile-role">{home.role}</span>
+                  ) : null}
+                  {home.location ? (
+                    <span className="about-profile-place">{home.location}</span>
+                  ) : null}
                 </div>
-                <div className="skill-list">
-                  {home.skills.map((skill) => (
-                    <span className="skill-badge" key={skill.name}>
-                      <span
-                        aria-hidden="true"
-                        className={`skill-icon ${SKILL_TONES[skill.icon] ?? "generic"}`}
-                      >
-                        {isImageIcon(skill.icon) ? (
-                          <img alt="" className="skill-img" src={skill.icon} />
-                        ) : (
-                          <BrandIcon name={skill.icon} />
-                        )}
+              ) : null}
+              {home.skills.length ? (
+                <>
+                  <div className="skill-heading">
+                    <span>Skills</span>
+                  </div>
+                  <div className="skill-list">
+                    {home.skills.map((skill) => (
+                      <span className="skill-badge" key={skill.name}>
+                        <span
+                          aria-hidden="true"
+                          className={`skill-icon ${SKILL_TONES[skill.icon] ?? "generic"}`}
+                        >
+                          {isImageIcon(skill.icon) ? (
+                            <img
+                              alt=""
+                              className="skill-img"
+                              src={skill.icon}
+                            />
+                          ) : (
+                            <BrandIcon name={skill.icon} />
+                          )}
+                        </span>
+                        <span>{skill.name}</span>
                       </span>
-                      <span>{skill.name}</span>
-                    </span>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            <div className="about-right">
+              <div className="now-heading">
+                <div>
+                  <p className="section-kicker">Now</p>
+                  <h2 className="now-title" id="about-title">
+                    {home.nowTitle}
+                  </h2>
+                </div>
+              </div>
+              {home.nowItems.length ? (
+                <div className="timeline">
+                  {home.nowItems.map((item, index) => (
+                    <div
+                      className="timeline-item"
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 静态渲染的一次性列表，条目可重复
+                      key={`${item.label}-${index}`}
+                    >
+                      <span className="timeline-label">
+                        <span className="timeline-num">
+                          {String(index + 1).padStart(2, "0")} /
+                        </span>
+                        <span className="timeline-word">{item.label}</span>
+                      </span>
+                      <NowItemCopy item={item} product={firstProduct} />
+                    </div>
                   ))}
                 </div>
-              </>
-            ) : null}
-          </div>
-
-          <div className="about-right">
-            <div className="now-heading">
-              <div>
-                <p className="section-kicker">Now</p>
-                <h2 className="now-title" id="about-title">
-                  {home.nowTitle}
-                </h2>
-              </div>
+              ) : null}
             </div>
-            {home.nowItems.length ? (
-              <div className="timeline">
-                {home.nowItems.map((item, index) => (
-                  <div
-                    className="timeline-item"
-                    // biome-ignore lint/suspicious/noArrayIndexKey: 静态渲染的一次性列表，条目可重复
-                    key={`${item.label}-${index}`}
-                  >
-                    <span className="timeline-label">
-                      <span className="timeline-num">
-                        {String(index + 1).padStart(2, "0")} /
-                      </span>
-                      <span className="timeline-word">{item.label}</span>
-                    </span>
-                    <NowItemCopy item={item} product={firstProduct} />
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </section>
-      </Reveal>
+          </section>
+        </Reveal>
+      ) : null}
 
-      <Reveal delay={80}>
-        <section className="home-blog-section" aria-labelledby="blog-heading">
-          <div>
-            <p className="section-kicker">博客</p>
-            <h2 className="home-section-title" id="blog-heading">
-              写点东西，记录
-              <WordRotate words={["当下", "自己"]} />
-            </h2>
-          </div>
-          <div className="home-blog-list">
-            {articles.length ? (
-              articles.slice(0, 2).map((article) => (
-                <Link
-                  className="home-blog-card"
-                  href={`/blog/${article.slug}`}
-                  key={article.id}
-                >
-                  <span className="home-blog-date">
-                    {formatDate(article.publishedAt || article.createdAt)}
-                  </span>
-                  <span className="home-blog-copy">
-                    <h3>{article.title}</h3>
-                    <p>{article.excerpt}</p>
-                  </span>
-                  <span aria-hidden="true" className="arrow-link">
-                    <ArrowUpRightIcon />
-                  </span>
-                </Link>
-              ))
-            ) : (
-              <p className="timeline-copy">还没有发布文章。</p>
-            )}
-            <Link className="button button-link home-more" href="/blog">
-              查看更多 <ArrowUpRightIcon />
-            </Link>
-          </div>
-        </section>
-      </Reveal>
-
-      <Reveal delay={120}>
-        <section
-          className="home-product-section"
-          aria-labelledby="product-heading"
-        >
-          <div className="home-product-header">
+      {show.blog ? (
+        <Reveal delay={80}>
+          <section className="home-blog-section" aria-labelledby="blog-heading">
             <div>
-              <p className="section-kicker">产品</p>
-              <h2 className="home-section-title" id="product-heading">
-                正在构建的东西
+              <p className="section-kicker">博客</p>
+              <h2 className="home-section-title" id="blog-heading">
+                写点东西，记录
+                <WordRotate words={["当下", "自己"]} />
               </h2>
             </div>
-            <div className="home-product-links">
-              <Link className="button button-link" href="/products">
-                全部 <ArrowUpRightIcon />
+            <div className="home-blog-list">
+              {articles.length ? (
+                articles.slice(0, 2).map((article) => (
+                  <Link
+                    className="home-blog-card"
+                    href={`/blog/${article.slug}`}
+                    key={article.id}
+                  >
+                    <span className="home-blog-date">
+                      {formatDate(article.publishedAt || article.createdAt)}
+                    </span>
+                    <span className="home-blog-copy">
+                      <h3>{article.title}</h3>
+                      <p>{article.excerpt}</p>
+                    </span>
+                    <span aria-hidden="true" className="arrow-link">
+                      <ArrowUpRightIcon />
+                    </span>
+                  </Link>
+                ))
+              ) : (
+                <p className="timeline-copy">还没有发布文章。</p>
+              )}
+              <Link className="button button-link home-more" href="/blog">
+                查看更多 <ArrowUpRightIcon />
               </Link>
             </div>
-          </div>
-          <div className="home-product-grid">
-            {products.length ? (
-              products
-                .slice(0, 3)
-                .map((item) => <HomeProductCard item={item} key={item.id} />)
-            ) : (
-              <p className="timeline-copy">还没有发布产品。</p>
-            )}
-          </div>
-        </section>
-      </Reveal>
+          </section>
+        </Reveal>
+      ) : null}
+
+      {show.product ? (
+        <Reveal delay={120}>
+          <section
+            className="home-product-section"
+            aria-labelledby="product-heading"
+          >
+            <div className="home-product-header">
+              <div>
+                <p className="section-kicker">产品</p>
+                <h2 className="home-section-title" id="product-heading">
+                  正在构建的东西
+                </h2>
+              </div>
+              <div className="home-product-links">
+                <Link className="button button-link" href="/products">
+                  全部 <ArrowUpRightIcon />
+                </Link>
+              </div>
+            </div>
+            <div className="home-product-grid">
+              {products.length ? (
+                products
+                  .slice(0, 3)
+                  .map((item) => <HomeProductCard item={item} key={item.id} />)
+              ) : (
+                <p className="timeline-copy">还没有发布产品。</p>
+              )}
+            </div>
+          </section>
+        </Reveal>
+      ) : null}
+
+      {show.project && projects.length ? (
+        <Reveal>
+          <section
+            className="home-product-section home-project-section"
+            aria-labelledby="project-heading"
+          >
+            <div className="home-product-header">
+              <div>
+                <p className="section-kicker">项目</p>
+                <h2 className="home-section-title" id="project-heading">
+                  正在折腾的项目
+                </h2>
+              </div>
+              <div className="home-product-links">
+                <Link className="button button-link" href="/projects">
+                  全部 <ArrowUpRightIcon />
+                </Link>
+              </div>
+            </div>
+            <div className="home-product-grid">
+              {projects.slice(0, 3).map((item) => (
+                <HomeProjectCard item={item} key={item.id} />
+              ))}
+            </div>
+          </section>
+        </Reveal>
+      ) : null}
     </div>
   );
 }

@@ -22,8 +22,21 @@ export default async function HomePage() {
         Date.parse(b.publishedAt || b.createdAt) -
           Date.parse(a.publishedAt || a.createdAt),
     );
+  const projects = records
+    .filter((item) => item.type === "project")
+    .sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder ||
+        Date.parse(b.publishedAt || b.createdAt) -
+          Date.parse(a.publishedAt || a.createdAt),
+    );
 
   return (
-    <HomeSections articles={articles} products={products} settings={settings} />
+    <HomeSections
+      articles={articles}
+      products={products}
+      projects={projects}
+      settings={settings}
+    />
   );
 }

@@ -42,6 +42,7 @@ describe("parseSettings", () => {
       homepage: {
         ...validSettings.homepage,
         role: "前端工程师",
+        sections: { about: true, blog: true, product: true, project: true },
         skills: [
           { name: "Vue", icon: "Vue" },
           { name: "Rust", icon: "" },

@@ -166,6 +166,21 @@ function parseHomepage(value: unknown): HomepageSettings {
     ),
     skills: parseSkills(raw.skills),
     nowItems: parseNowItems(raw.nowItems),
+    sections: parseSections(raw.sections),
+  };
+}
+
+/** 首页板块开关：只接受布尔值，非法/缺省一律视为 true（显示）。 */
+function parseSections(value: unknown): HomepageSettings["sections"] {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    about: raw.about !== false,
+    blog: raw.blog !== false,
+    product: raw.product !== false,
+    project: raw.project !== false,
   };
 }
 

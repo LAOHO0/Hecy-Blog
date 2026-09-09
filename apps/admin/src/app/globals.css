@@ -2517,3 +2517,24 @@ kbd {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* 首页板块显示开关（设置页）：紧凑两列勾选布局。 */
+.section-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.section-toggle-grid .check-row {
+  color: var(--foreground);
+  font-size: 12px;
+}
+
+.field-hint {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}

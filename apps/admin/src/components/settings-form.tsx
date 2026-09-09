@@ -538,6 +538,36 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
               ) : null}
             </label>
             <div className="field full">
+              <span className="field-label">首页板块显示</span>
+              <div className="section-toggle-grid">
+                {(
+                  [
+                    { key: "about", label: "关于我" },
+                    { key: "blog", label: "博客" },
+                    { key: "product", label: "产品" },
+                    { key: "project", label: "项目" },
+                  ] as const
+                ).map(({ key, label }) => (
+                  <label className="check-row" key={key}>
+                    <input
+                      checked={home.sections[key]}
+                      onChange={(event) =>
+                        updateHome("sections", {
+                          ...home.sections,
+                          [key]: event.target.checked,
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+              <span className="field-hint">
+                取消勾选后，对应板块不在首页显示（导航和列表页不受影响）。
+              </span>
+            </div>
+            <div className="field full">
               <span className="field-label-with-count">
                 社交链接（{settings.socialLinks.length}/{LINK_LIMITS.count}）
               </span>
