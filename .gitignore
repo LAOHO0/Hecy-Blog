@@ -16,3 +16,7 @@ coverage/
 work/
 site-out/
 gui-test-screenshots/
+
+# 本地媒体存储与测试产物
+data/
+.e2e-tmp/

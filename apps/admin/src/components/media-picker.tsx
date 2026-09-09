@@ -23,6 +23,7 @@ async function uploadMedia(file: File): Promise<MediaAsset> {
   });
   const presign = (await presignResponse.json().catch(() => ({}))) as {
     configured?: boolean;
+    driver?: "local" | "s3";
     message?: string;
     error?: string;
     key?: string;
@@ -31,6 +32,22 @@ async function uploadMedia(file: File): Promise<MediaAsset> {
   };
   if (!presignResponse.ok) {
     throw new Error(presign.error || "获取上传地址失败。");
+  }
+  if (presign.driver === "local") {
+    const body = new FormData();
+    body.append("file", file);
+    const localResponse = await fetch("/api/media/upload", {
+      method: "POST",
+      body,
+    });
+    const localPayload = (await localResponse.json().catch(() => ({}))) as {
+      item?: MediaAsset;
+      error?: string;
+    };
+    if (!localResponse.ok || !localPayload.item) {
+      throw new Error(localPayload.error || "文件上传失败。");
+    }
+    return localPayload.item;
   }
   if (presign.configured === false) {
     throw new Error(presign.message || "未配置对象存储。");
@@ -160,7 +177,7 @@ export function MediaPickerModal({
           </div>
         ) : (
           <div className="empty">
-            媒体库还是空的。上传图片后会保存在对象存储（需要配置 S3 环境变量）。
+            媒体库还是空的。默认会保存到服务器本地，也可以切换到 S3 兼容存储。
           </div>
         )}
       </section>

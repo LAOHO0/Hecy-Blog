@@ -2,6 +2,11 @@
 
 ## 0. Vercel 部署（方案 B，全平台托管）
 
+媒体存储：单台 VPS 默认使用本地磁盘，不需要配置 S3。请在 `.env` 中保留
+`STORAGE_DRIVER=local`，并将 `MEDIA_DIR` 挂载到持久化目录。Vercel 或多实例部署
+没有可靠的本地磁盘，此时设置 `STORAGE_DRIVER=s3`，再填写下方的 S3 变量；Cloudflare
+R2、阿里云 OSS、腾讯云 COS 和 MinIO 都兼容。
+
 前后台拆成 Vercel 上的两个项目，共用一个托管 PostgreSQL（推荐 Neon 免费套餐）。
 此方案无需 VPS；若你已有 VPS，后台也可以按第 1 节部署在 VPS 上，只把前台交给 Vercel（此时跳过后台项目部分，`VERCEL_DEPLOY_HOOK_URL` 一样适用）。
 

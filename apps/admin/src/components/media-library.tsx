@@ -36,11 +36,31 @@ export function MediaLibrary({ initial }: { initial: MediaAsset[] }) {
       });
       const payload = (await response.json().catch(() => ({}))) as {
         configured?: boolean;
+        driver?: "local" | "s3";
         message?: string;
         uploadUrl?: string;
         key?: string;
         publicUrl?: string;
       };
+      if (payload.driver === "local") {
+        const body = new FormData();
+        body.append("file", file);
+        const localResponse = await fetch("/api/media/upload", {
+          method: "POST",
+          body,
+        });
+        const localPayload = (await localResponse.json().catch(() => ({}))) as {
+          item?: MediaAsset;
+          error?: string;
+        };
+        if (!localResponse.ok || !localPayload.item) {
+          setNotice(localPayload.error || "文件上传失败。");
+          return;
+        }
+        setItems((current) => [localPayload.item as MediaAsset, ...current]);
+        setNotice("媒体上传成功。");
+        return;
+      }
       if (
         !response.ok ||
         !payload.configured ||
@@ -89,7 +109,8 @@ export function MediaLibrary({ initial }: { initial: MediaAsset[] }) {
       <div className="media-toolbar">
         <div>
           <p className="page-subtitle">
-            选择图片上传；正式环境通过 S3 兼容对象存储生成预签名地址。
+            选择图片上传；默认保存到服务器本地，配置 STORAGE_DRIVER=s3
+            后使用对象存储。
           </p>
           {notice ? <div className="notice">{notice}</div> : null}
         </div>
