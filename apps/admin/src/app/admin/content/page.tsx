@@ -23,7 +23,10 @@ export default async function ContentPage({
           ＋ 新建内容
         </Link>
       </section>
-      <ContentTable records={records} />
+      <ContentTable
+        records={records}
+        siteOrigin={process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || ""}
+      />
     </div>
   );
 }

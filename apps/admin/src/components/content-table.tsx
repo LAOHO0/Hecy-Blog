@@ -12,19 +12,28 @@ import {
   typeLabels,
 } from "@/lib/presentation";
 
-export function ContentTable({ records }: { records: ContentRecord[] }) {
+export function ContentTable({
+  records,
+  siteOrigin,
+}: {
+  records: ContentRecord[];
+  /** 前台站点地址（服务端从 NEXT_PUBLIC_SITE_URL 注入）；空则回退本地 3002。 */
+  siteOrigin: string;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"all" | ContentRecord["type"]>("all");
   const [status, setStatus] = useState<"all" | ContentRecord["status"]>("all");
   const [pending, startTransition] = useTransition();
 
-  // 前台详情页路径：文章 /blog，产品 /products，项目 /projects
+  // 前台详情页路径：文章 /blog，产品 /products，项目 /projects。
+  // 链接必须是前台的绝对地址：相对路径会落在后台端口上（后台无此路由，404）。
   const sectionByType: Record<ContentRecord["type"], string> = {
     article: "blog",
     product: "products",
     project: "projects",
   };
+  const siteBase = siteOrigin || "http://localhost:3002";
 
   const counts = useMemo(() => {
     const map: Record<typeof type, number> = {
@@ -157,7 +166,7 @@ export function ContentTable({ records }: { records: ContentRecord[] }) {
                     {item.status === "published" ? (
                       <a
                         className="icon-button"
-                        href={`/${sectionByType[item.type]}/${item.slug}`}
+                        href={`${siteBase}/${sectionByType[item.type]}/${item.slug}/`}
                         target="_blank"
                         rel="noreferrer"
                         aria-label={`前台查看 ${item.title}`}
