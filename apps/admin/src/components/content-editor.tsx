@@ -169,6 +169,7 @@ export function ContentEditor({
   const [mediaOpen, setMediaOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  const gutterRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -199,10 +200,68 @@ export function ContentEditor({
       element.selectionEnd,
     );
     update("body", next.value);
+    scheduleBodySnapshot();
     requestAnimationFrame(() => {
       element.focus();
       element.setSelectionRange(next.start, next.end);
     });
+  }
+
+  // ===== 正文撤销/重做：textarea 受控后原生 undo 失效，自建快照栈 =====
+  const bodyHistoryRef = useRef<{ stack: string[]; index: number }>({
+    stack: [],
+    index: -1,
+  });
+  const bodySnapshotTimerRef = useRef<number | null>(null);
+
+  function snapshotBodyNow() {
+    const history = bodyHistoryRef.current;
+    const value = bodyRef.current?.value ?? data.body;
+    if (history.stack[history.index] === value) return;
+    history.stack = history.stack.slice(0, history.index + 1);
+    history.stack.push(value);
+    if (history.stack.length > 100) history.stack.shift();
+    history.index = history.stack.length - 1;
+  }
+
+  /** 输入/工具栏操作后延迟合并快照，避免每个字符占一档。 */
+  function scheduleBodySnapshot() {
+    if (bodySnapshotTimerRef.current) {
+      window.clearTimeout(bodySnapshotTimerRef.current);
+    }
+    bodySnapshotTimerRef.current = window.setTimeout(snapshotBodyNow, 400);
+  }
+
+  function setBodyValue(value: string) {
+    update("body", value);
+    requestAnimationFrame(() => {
+      const element = bodyRef.current;
+      if (!element) return;
+      element.focus();
+      element.setSelectionRange(value.length, value.length);
+    });
+  }
+
+  function undoBody() {
+    snapshotBodyNow();
+    const history = bodyHistoryRef.current;
+    if (history.index <= 0) return;
+    history.index -= 1;
+    setBodyValue(history.stack[history.index]);
+  }
+
+  function redoBody() {
+    const history = bodyHistoryRef.current;
+    if (history.index >= history.stack.length - 1) return;
+    history.index += 1;
+    setBodyValue(history.stack[history.index]);
+  }
+
+  function clearBody() {
+    if (!data.body) return;
+    if (!window.confirm("确定清空正文吗？可用撤销恢复。")) return;
+    snapshotBodyNow();
+    setBodyValue("");
   }
 
   function wrapSelection(before: string, after: string, placeholder: string) {
@@ -800,23 +859,6 @@ export function ContentEditor({
               <div className="md-toolbar">
                 <button
                   className="md-tool"
-                  onClick={() => prefixLines("## ")}
-                  title="二级标题"
-                  type="button"
-                >
-                  H2
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => prefixLines("### ")}
-                  title="三级标题"
-                  type="button"
-                >
-                  H3
-                </button>
-                <span aria-hidden="true" className="md-tool-sep" />
-                <button
-                  className="md-tool"
                   onClick={() => wrapSelection("**", "**", "加粗文字")}
                   title="加粗"
                   type="button"
@@ -850,11 +892,36 @@ export function ContentEditor({
                 <span aria-hidden="true" className="md-tool-sep" />
                 <button
                   className="md-tool"
-                  onClick={() => wrapLines("::: center\n", "\n:::")}
-                  title="居中（::: center 容器）"
+                  onClick={() => prefixLines("## ")}
+                  title="二级标题"
                   type="button"
                 >
-                  居中
+                  H2
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("### ")}
+                  title="三级标题"
+                  type="button"
+                >
+                  H3
+                </button>
+                <span aria-hidden="true" className="md-tool-sep" />
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("- ")}
+                  title="无序列表"
+                  type="button"
+                >
+                  <Icon name="list-ul" />
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => prefixLines("1. ")}
+                  title="有序列表"
+                  type="button"
+                >
+                  <Icon name="list-ol" />
                 </button>
                 <button
                   className="md-tool"
@@ -862,31 +929,32 @@ export function ContentEditor({
                   title="引用"
                   type="button"
                 >
-                  引用
+                  <Icon name="quote" />
                 </button>
                 <button
                   className="md-tool"
-                  onClick={() => prefixLines("- ")}
-                  title="无序列表"
+                  onClick={() => wrapLines("::: center\n", "\n:::")}
+                  title="居中（::: center 容器）"
                   type="button"
                 >
-                  列表
+                  <Icon name="align-center" />
                 </button>
-                <button
-                  className="md-tool"
-                  onClick={() => insertSnippet("\n```js\n// 代码\n```\n")}
-                  title="代码块"
-                  type="button"
-                >
-                  代码块
-                </button>
+                <span aria-hidden="true" className="md-tool-sep" />
                 <button
                   className="md-tool"
                   onClick={() => wrapSelection("[", "](https://)", "链接文字")}
                   title="链接"
                   type="button"
                 >
-                  链接
+                  <Icon name="link" />
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => setMediaOpen(true)}
+                  title="从媒体库插入图片"
+                  type="button"
+                >
+                  <Icon name="image" />
                 </button>
                 <button
                   className="md-tool"
@@ -898,19 +966,49 @@ export function ContentEditor({
                   title="插入表格"
                   type="button"
                 >
-                  表格
+                  <Icon name="table" />
                 </button>
-                <span aria-hidden="true" className="md-tool-sep" />
                 <button
                   className="md-tool"
-                  onClick={() => setMediaOpen(true)}
-                  title="从媒体库插入图片"
+                  onClick={() => insertSnippet("\n---\n")}
+                  title="水平线"
                   type="button"
                 >
-                  <Icon name="image" />
-                  图片
+                  <Icon name="minus" />
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={() => insertSnippet("\n```js\n// 代码\n```\n")}
+                  title="代码块"
+                  type="button"
+                >
+                  <Icon name="code" />
                 </button>
                 <span className="md-toolbar-spacer" />
+                <button
+                  className="md-tool"
+                  onClick={undoBody}
+                  title="撤销 (Ctrl+Z)"
+                  type="button"
+                >
+                  <Icon name="restore" />
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={redoBody}
+                  title="重做 (Ctrl+Y)"
+                  type="button"
+                >
+                  <Icon name="redo" />
+                </button>
+                <button
+                  className="md-tool"
+                  onClick={clearBody}
+                  title="清空正文"
+                  type="button"
+                >
+                  <Icon name="trash" />
+                </button>
                 <div className="md-view-switch">
                   {(["write", "split", "preview"] as const).map((mode) => (
                     <button
@@ -934,13 +1032,45 @@ export function ContentEditor({
                   title={fullscreen ? "退出全屏（Esc）" : "全屏编辑"}
                   type="button"
                 >
-                  {fullscreen ? "退出全屏" : "全屏"}
+                  <Icon name="eye" />
                 </button>
               </div>
               <div className={`body-editor ${bodyView}`}>
+                {bodyView !== "preview" ? (
+                  <div aria-hidden="true" className="md-gutter" ref={gutterRef}>
+                    {Array.from(
+                      { length: Math.max(data.body.split("\n").length, 1) },
+                      (_, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: 行号就是序号本身，列表顺序固定
+                        <span key={i}>{i + 1}</span>
+                      ),
+                    )}
+                  </div>
+                ) : null}
                 <textarea
                   className="textarea mdx-input"
-                  onChange={(event) => update("body", event.target.value)}
+                  onChange={(event) => {
+                    update("body", event.target.value);
+                    scheduleBodySnapshot();
+                  }}
+                  onKeyDown={(event) => {
+                    if (!(event.ctrlKey || event.metaKey)) return;
+                    const key = event.key.toLowerCase();
+                    if (key === "z" && !event.shiftKey) {
+                      event.preventDefault();
+                      undoBody();
+                    } else if (key === "y" || (key === "z" && event.shiftKey)) {
+                      event.preventDefault();
+                      redoBody();
+                    }
+                  }}
+                  onScroll={(event) => {
+                    if (gutterRef.current) {
+                      gutterRef.current.scrollTop =
+                        event.currentTarget.scrollTop;
+                    }
+                  }}
+                  placeholder="# 从这里开始写作…"
                   ref={bodyRef}
                   value={data.body}
                 />

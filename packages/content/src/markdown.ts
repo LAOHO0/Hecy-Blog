@@ -31,7 +31,8 @@ export type MarkdownBlock =
     }
   | { type: "code"; language: string; text: string }
   | { type: "quote"; inline: MarkdownInline[] }
-  | { type: "list"; items: MarkdownInline[][] }
+  | { type: "list"; items: MarkdownInline[][]; ordered?: boolean }
+  | { type: "hr" }
   | {
       type: "table";
       align: TableAlign[];
@@ -256,8 +257,35 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
       flushParagraph();
       const item = line.replace(/^[-*]\s+/, "").trim();
       const lastBlock = blocks.at(-1);
-      if (lastBlock?.type === "list") lastBlock.items.push(parseInline(item));
-      else blocks.push({ type: "list", items: [parseInline(item)] });
+      if (lastBlock?.type === "list" && !lastBlock.ordered) {
+        lastBlock.items.push(parseInline(item));
+      } else {
+        blocks.push({ type: "list", items: [parseInline(item)] });
+      }
+      continue;
+    }
+    // 有序列表：1. / 1、 / 1) 三种写法；`.` 与 `)` 后必须有空格，
+    // 避免把「1.5 万元」这类小数误判为列表。
+    const orderedMatch = /^(\d{1,9})(?:[.)]\s+|、\s*)(.*)$/.exec(line);
+    if (orderedMatch) {
+      flushParagraph();
+      const item = orderedMatch[2].trim();
+      const lastBlock = blocks.at(-1);
+      if (lastBlock?.type === "list" && lastBlock.ordered) {
+        lastBlock.items.push(parseInline(item));
+      } else {
+        blocks.push({
+          type: "list",
+          items: [parseInline(item)],
+          ordered: true,
+        });
+      }
+      continue;
+    }
+    // 水平线：单独一行的 --- / *** / ___。
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      flushParagraph();
+      blocks.push({ type: "hr" });
       continue;
     }
     // 对齐容器：`::: center` / `::: right` 起始，`:::` 结束，

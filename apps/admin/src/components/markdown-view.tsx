@@ -40,8 +40,9 @@ function Block({ block }: { block: MarkdownBlock }) {
     );
   }
   if (block.type === "list") {
+    const ListTag = block.ordered ? "ol" : "ul";
     return (
-      <ul>
+      <ListTag>
         {block.items.map((item, index) => (
           <li
             // biome-ignore lint/suspicious/noArrayIndexKey: 预览的派生内容，单元格内容可重复
@@ -50,8 +51,11 @@ function Block({ block }: { block: MarkdownBlock }) {
             <InlineNodes tokens={item} />
           </li>
         ))}
-      </ul>
+      </ListTag>
     );
+  }
+  if (block.type === "hr") {
+    return <hr />;
   }
   if (block.type === "table") {
     return (

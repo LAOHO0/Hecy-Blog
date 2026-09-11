@@ -144,3 +144,33 @@ describe("align containers", () => {
     expect(blocks[0]).toMatchObject({ type: "paragraph" });
   });
 });
+
+describe("ordered list and hr", () => {
+  it("parses 1. 1、 1) as ordered list items", () => {
+    const blocks = parseMarkdown("1. 第一\n2、第二\n3) 第三");
+    expect(blocks).toEqual([
+      {
+        type: "list",
+        items: [
+          [{ kind: "text", value: "第一" }],
+          [{ kind: "text", value: "第二" }],
+          [{ kind: "text", value: "第三" }],
+        ],
+        ordered: true,
+      },
+    ]);
+  });
+
+  it("keeps unordered list without ordered flag", () => {
+    const blocks = parseMarkdown("- 甲\n- 乙");
+    expect(blocks[0]).not.toHaveProperty("ordered");
+  });
+
+  it("parses standalone --- as hr", () => {
+    expect(parseMarkdown("上\n\n---\n\n下")).toEqual([
+      { type: "paragraph", inline: [{ kind: "text", value: "上" }] },
+      { type: "hr" },
+      { type: "paragraph", inline: [{ kind: "text", value: "下" }] },
+    ]);
+  });
+});

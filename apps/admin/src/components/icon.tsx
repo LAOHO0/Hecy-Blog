@@ -21,6 +21,16 @@ type IconName =
   | "save"
   | "trash"
   | "restore"
+  | "redo"
+  | "list-ul"
+  | "list-ol"
+  | "quote"
+  | "link"
+  | "code"
+  | "table"
+  | "minus"
+  | "align-center"
+  | "fullscreen"
   | "upload";
 
 const paths: Record<IconName, React.ReactNode> = {
@@ -118,6 +128,58 @@ const paths: Record<IconName, React.ReactNode> = {
   restore: (
     <>
       <path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.6M20 4v4.6h-4.6" />
+    </>
+  ),
+  "list-ul": (
+    <>
+      <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
+    </>
+  ),
+  "list-ol": (
+    <>
+      <path d="M10 6h10M10 12h10M10 18h10" />
+      <path d="M4 5l1.5-1v5M3.5 15.5c.3-.8 2-1 2.3-.2.3.8-2.3 1.6-2.3 3.2h3" />
+    </>
+  ),
+  quote: (
+    <>
+      <path d="M5 11h4v6H4v-5a5 5 0 0 1 3-4.6M14 11h4v6h-5v-5a5 5 0 0 1 3-4.6" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 1 0-5.7-5.6l-1.2 1.2M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 1 0 5.7 5.6l1.2-1.2" />
+    </>
+  ),
+  code: (
+    <>
+      <path d="M8 7l-5 5 5 5M16 7l5 5-5 5" />
+    </>
+  ),
+  table: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="1.5" />
+      <path d="M3 10h18M9 10v10M15 10v10" />
+    </>
+  ),
+  minus: (
+    <>
+      <path d="M4 12h16" />
+    </>
+  ),
+  "align-center": (
+    <>
+      <path d="M4 6h16M7 12h10M5 18h14" />
+    </>
+  ),
+  fullscreen: (
+    <>
+      <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
     </>
   ),
   upload: (

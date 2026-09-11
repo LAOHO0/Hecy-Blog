@@ -2545,3 +2545,45 @@ kbd {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* 图标化 Markdown 工具栏：按钮内 svg 垂直居中 */
+.md-tool {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-width: 30px;
+}
+
+.md-tool svg {
+  display: block;
+}
+
+/* 正文行号槽：与输入区同行高、随滚动同步 */
+.body-editor {
+  position: relative;
+}
+
+.md-gutter {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  bottom: 0;
+  box-sizing: border-box;
+  color: var(--muted);
+  font-family: "Space Mono", "Cascadia Mono", Consolas, monospace;
+  font-size: 11px;
+  left: 0;
+  line-height: 21px;
+  overflow: hidden;
+  padding: 12px 8px 12px 0;
+  position: absolute;
+  text-align: right;
+  top: 0;
+  user-select: none;
+  width: 38px;
+}
+
+.body-editor .mdx-input {
+  font-size: 12px;
+  line-height: 21px;
+  padding-left: 50px;
+}

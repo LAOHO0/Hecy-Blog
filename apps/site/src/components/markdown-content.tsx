@@ -32,19 +32,23 @@ export function MarkdownContent({ source }: { source: string }) {
                   <InlineNodes tokens={block.inline} />
                 </blockquote>
               );
-            case "list":
+            case "list": {
+              const ListTag = block.ordered ? "ol" : "ul";
               return (
-                <ul key={key}>
+                <ListTag key={key}>
                   {block.items.map((item, index) => (
                     <li
-                      // biome-ignore lint/suspicious/noArrayIndexKey: 静态渲染的派生内容，单元格内容可重复
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 静态渲染的派生内容，条目可重复
                       key={`${key}-${index}`}
                     >
                       <InlineNodes tokens={item} />
                     </li>
                   ))}
-                </ul>
+                </ListTag>
               );
+            }
+            case "hr":
+              return <hr key={key} />;
             case "table":
               return (
                 <div className="markdown-table-wrap" key={key}>
