@@ -98,3 +98,49 @@ describe("markdownBlockIdentity", () => {
     expect(markdownBlockIdentity(b)).toBe(markdownBlockIdentity(c));
   });
 });
+
+describe("image size suffix", () => {
+  it("parses =宽x高 and =宽 size suffixes", () => {
+    const [both] = parseInline("![图](https://a.com/x.png =480x300)");
+    expect(both).toEqual({
+      kind: "image",
+      alt: "图",
+      url: "https://a.com/x.png",
+      width: 480,
+      height: 300,
+    });
+    const [widthOnly] = parseInline("![图](https://a.com/x.png =480x)");
+    expect(widthOnly).toMatchObject({ width: 480, height: undefined });
+    const [none] = parseInline("![图](https://a.com/x.png)");
+    expect(none).toMatchObject({ width: undefined, height: undefined });
+  });
+
+  it("never renders an image token for unsafe urls with size suffix", () => {
+    const tokens = parseInline("![图](javascript:alert(1) =480x)");
+    expect(tokens.some((t) => t.kind === "image")).toBe(false);
+  });
+});
+
+describe("align containers", () => {
+  it("parses ::: center block into centered paragraph", () => {
+    const blocks = parseMarkdown("::: center\n**居中的文字**\n:::");
+    expect(blocks).toEqual([
+      {
+        type: "paragraph",
+        inline: [{ kind: "strong", value: "居中的文字" }],
+        align: "center",
+      },
+    ]);
+  });
+
+  it("parses ::: right block", () => {
+    const blocks = parseMarkdown("::: right\n右对齐\n:::");
+    expect(blocks[0]).toMatchObject({ type: "paragraph", align: "right" });
+  });
+
+  it("drops stray ::: closer", () => {
+    const blocks = parseMarkdown("普通段落\n:::");
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({ type: "paragraph" });
+  });
+});

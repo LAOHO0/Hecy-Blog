@@ -9,6 +9,7 @@ export function LoginForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -20,7 +21,7 @@ export function LoginForm() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, remember }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -72,6 +73,14 @@ export function LoginForm() {
               type="password"
               value={password}
             />
+          </label>
+          <label className="check-row login-remember">
+            <input
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+              type="checkbox"
+            />
+            <span>记住我（30 天内免登录）</span>
           </label>
           {error ? <div className="notice error">{error}</div> : null}
           <button className="button" disabled={pending} type="submit">

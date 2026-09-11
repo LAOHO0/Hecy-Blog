@@ -6,7 +6,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const SESSION_COOKIE = "hecy_session";
+// 未勾选「记住我」：7 天；勾选：30 天。JWT 自带过期时间，Cookie 同步该时长。
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+const REMEMBER_TTL_SECONDS = 60 * 60 * 24 * 30;
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 function secretKey() {
@@ -65,13 +67,18 @@ export function checkLoginRateLimit(ip: string) {
   return { allowed: true, retryAfter: 0 };
 }
 
-export async function createSession(username: string) {
-  return new SignJWT({ role: "admin", username })
+export async function createSession(
+  username: string,
+  remember = false,
+): Promise<{ token: string; maxAge: number }> {
+  const maxAge = remember ? REMEMBER_TTL_SECONDS : SESSION_TTL_SECONDS;
+  const token = await new SignJWT({ role: "admin", username })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(username)
     .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS)
+    .setExpirationTime(Math.floor(Date.now() / 1000) + maxAge)
     .sign(secretKey());
+  return { token, maxAge };
 }
 
 export async function readSession(token: string | undefined) {
@@ -101,7 +108,7 @@ export async function hasAdminSession() {
   return Boolean(await getSession());
 }
 
-export function sessionCookieOptions() {
+export function sessionCookieOptions(maxAge = SESSION_TTL_SECONDS) {
   // Secure 与 ADMIN_ORIGIN 的协议对齐而非 NODE_ENV：
   // 通过 HTTP + IP 访问的生产部署若强制 Secure，浏览器会丢弃 Cookie，
   // 表现为"登录成功却始终保持未登录"。
@@ -109,7 +116,7 @@ export function sessionCookieOptions() {
     httpOnly: true,
     sameSite: "lax" as const,
     secure: (process.env.ADMIN_ORIGIN ?? "").startsWith("https"),
-    maxAge: SESSION_TTL_SECONDS,
+    maxAge,
     path: "/",
   };
 }

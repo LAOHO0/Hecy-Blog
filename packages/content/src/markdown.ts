@@ -5,14 +5,30 @@ export type MarkdownInline =
   | { kind: "emphasis"; value: string }
   | { kind: "strike"; value: string }
   | { kind: "link"; value: string; href: string }
-  | { kind: "image"; alt: string; url: string }
+  | {
+      kind: "image";
+      alt: string;
+      url: string;
+      /** 可选显示尺寸，来自 `![alt](url =宽x高)` 语法；只给宽时高等比自动。 */
+      width?: number;
+      height?: number;
+    }
   | { kind: "break" };
 
 export type TableAlign = "left" | "center" | "right";
 
 export type MarkdownBlock =
-  | { type: "heading"; level: 1 | 2 | 3; inline: MarkdownInline[] }
-  | { type: "paragraph"; inline: MarkdownInline[] }
+  | {
+      type: "heading";
+      level: 1 | 2 | 3;
+      inline: MarkdownInline[];
+    }
+  | {
+      type: "paragraph";
+      inline: MarkdownInline[];
+      /** 来自 `::: center` / `::: right` 容器的对齐方式。 */
+      align?: "center" | "right";
+    }
   | { type: "code"; language: string; text: string }
   | { type: "quote"; inline: MarkdownInline[] }
   | { type: "list"; items: MarkdownInline[][] }
@@ -41,7 +57,22 @@ export function safeMarkdownUrl(url: string): string | undefined {
 }
 
 const INLINE_PATTERN =
-  /(`[^`]+`)|(!\[[^\]]*\]\([^)\s]*\))|(\[[^\]]+\]\([^)\s]*\))|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(~~[^~]+~~)/g;
+  /(`[^`]+`)|(!\[[^\]]*\]\([^)\s]*(?:\s+=\s*\d+(?:x\d*)?)?\))|(\[[^\]]+\]\([^)\s]*\))|(\*\*[^*]+\*\*)|(\*[^*\s][^*]*\*)|(~~[^~]+~~)/g;
+
+/** 解析图片地址后的 ` =宽x高` 尺寸后缀；无后缀返回原地址。 */
+function splitImageSize(inner: string): {
+  url: string;
+  width?: number;
+  height?: number;
+} {
+  const match = /\s+=\s*(\d+)(?:x(\d*))?\s*$/.exec(inner);
+  if (!match) return { url: inner };
+  return {
+    url: inner.slice(0, match.index),
+    width: Number(match[1]),
+    height: match[2] ? Number(match[2]) : undefined,
+  };
+}
 
 /** 行内语法解析：代码、图片、链接、加粗、斜体、删除线；不支持的写法按普通文本输出。 */
 export function parseInline(source: string): MarkdownInline[] {
@@ -58,11 +89,19 @@ export function parseInline(source: string): MarkdownInline[] {
     } else if (raw.startsWith("![") || raw.startsWith("[")) {
       const isImage = raw.startsWith("![");
       const label = raw.slice(isImage ? 2 : 1, raw.indexOf("]"));
-      const url = safeMarkdownUrl(raw.slice(raw.indexOf("](") + 2, -1));
+      const inner = raw.slice(raw.indexOf("](") + 2, -1);
+      const size = isImage ? splitImageSize(inner) : { url: inner };
+      const url = safeMarkdownUrl(size.url);
       if (!url) {
         tokens.push({ kind: "text", value: raw });
       } else if (isImage) {
-        tokens.push({ kind: "image", alt: label, url });
+        tokens.push({
+          kind: "image",
+          alt: label,
+          url,
+          width: size.width,
+          height: size.height,
+        });
       } else {
         tokens.push({ kind: "link", value: label, href: url });
       }
@@ -219,6 +258,31 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
       const lastBlock = blocks.at(-1);
       if (lastBlock?.type === "list") lastBlock.items.push(parseInline(item));
       else blocks.push({ type: "list", items: [parseInline(item)] });
+      continue;
+    }
+    // 对齐容器：`::: center` / `::: right` 起始，`:::` 结束，
+    // 内部按段落解析（支持居中一行文字或一张图片）。
+    const alignOpen = /^:::\s*(center|right)\s*$/.exec(line);
+    if (alignOpen) {
+      flushParagraph();
+      const align = alignOpen[1] as "center" | "right";
+      const inner: ParagraphLine[] = [];
+      i += 1;
+      while (i < lines.length && !/^:::\s*$/.test(lines[i])) {
+        const text = lines[i].trim();
+        if (text) {
+          inner.push({ text, hardBreak: /\s{2,}$/.test(lines[i]) });
+        }
+        i += 1;
+      }
+      const tokens = paragraphInline(inner);
+      if (tokens.length)
+        blocks.push({ type: "paragraph", inline: tokens, align });
+      continue;
+    }
+    if (/^:::\s*$/.test(line)) {
+      // 未配对的关闭标记按普通空行处理。
+      flushParagraph();
       continue;
     }
     if (!line.trim()) {

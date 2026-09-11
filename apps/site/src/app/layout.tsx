@@ -24,14 +24,20 @@ const dataFont = Space_Mono({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "Hecy Blog",
-    template: "%s · Hecy Blog",
-  },
-  description: "记录写作、产品与项目的 Hecy Blog。",
-};
+// 站点图标随后台设置动态变化，用 generateMetadata 统一导出。
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  const favicon = settings.faviconUrl?.trim();
+  return {
+    metadataBase: new URL(siteUrl),
+    title: {
+      default: "Hecy Blog",
+      template: "%s · Hecy Blog",
+    },
+    description: "记录写作、产品与项目的 Hecy Blog。",
+    ...(favicon ? { icons: { icon: favicon } } : {}),
+  };
+}
 
 export default async function RootLayout({
   children,

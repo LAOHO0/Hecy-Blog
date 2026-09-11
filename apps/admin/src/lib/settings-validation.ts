@@ -200,9 +200,14 @@ export function parseSettings(value: unknown): SiteSettings {
     240,
     "页脚文字不能超过 240 字。",
   );
+  // 头像/图标来自媒体库时是站内相对地址（/media/...），允许相对路径。
   const avatarRaw = optionalText(input.avatarUrl, 500, "头像 URL 过长。");
-  if (avatarRaw && !isSafeUrl(avatarRaw)) {
+  if (avatarRaw && !isSafeUrl(avatarRaw, true)) {
     throw new Error("头像 URL 必须是 http(s) 链接。");
+  }
+  const faviconRaw = optionalText(input.faviconUrl, 500, "图标 URL 过长。");
+  if (faviconRaw && !isSafeUrl(faviconRaw, true)) {
+    throw new Error("图标 URL 必须是 http(s) 链接。");
   }
 
   const socialLinks = parseLinks(
@@ -244,6 +249,7 @@ export function parseSettings(value: unknown): SiteSettings {
     tagline,
     bio,
     avatarUrl: avatarRaw || undefined,
+    faviconUrl: faviconRaw || undefined,
     footerText,
     socialLinks,
     navigation,

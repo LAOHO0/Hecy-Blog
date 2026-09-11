@@ -2538,3 +2538,10 @@ kbd {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* 登录页「记住我」勾选行 */
+.login-remember {
+  margin: 2px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let payload: { username?: unknown; password?: unknown };
+  let payload: { username?: unknown; password?: unknown; remember?: unknown };
   try {
     payload = (await request.json()) as typeof payload;
   } catch {
@@ -27,6 +27,7 @@ export async function POST(request: Request) {
 
   const username = typeof payload.username === "string" ? payload.username : "";
   const password = typeof payload.password === "string" ? payload.password : "";
+  const remember = payload.remember === true;
   if (
     username.length < 1 ||
     username.length > 80 ||
@@ -58,9 +59,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "用户名或密码错误。" }, { status: 401 });
   }
 
-  const token = await createSession(getAdminUsername());
+  const { token, maxAge } = await createSession(getAdminUsername(), remember);
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+  response.cookies.set(
+    SESSION_COOKIE_NAME,
+    token,
+    sessionCookieOptions(maxAge),
+  );
   return response;
 }
 

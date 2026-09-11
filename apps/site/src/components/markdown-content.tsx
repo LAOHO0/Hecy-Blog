@@ -85,7 +85,10 @@ export function MarkdownContent({ source }: { source: string }) {
               );
             default:
               return (
-                <p key={key}>
+                <p
+                  key={key}
+                  style={block.align ? { textAlign: block.align } : undefined}
+                >
                   <InlineNodes tokens={block.inline} />
                 </p>
               );

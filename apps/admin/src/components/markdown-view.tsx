@@ -93,7 +93,7 @@ function Block({ block }: { block: MarkdownBlock }) {
     );
   }
   return (
-    <p>
+    <p style={block.align ? { textAlign: block.align } : undefined}>
       <InlineNodes tokens={block.inline} />
     </p>
   );

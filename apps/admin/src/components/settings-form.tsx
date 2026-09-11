@@ -83,6 +83,9 @@ function validateSettings(settings: SiteSettings): SettingsErrors {
   const avatar = settings.avatarUrl?.trim();
   if (avatar && !isSafeLink(avatar))
     errors.avatarUrl = "头像 URL 必须是 http(s) 链接。";
+  const favicon = settings.faviconUrl?.trim();
+  if (favicon && !isSafeLink(favicon))
+    errors.faviconUrl = "图标 URL 必须是 http(s) 链接。";
   if (home.greeting.trim().length > limits.greeting)
     errors.greeting = `问候语不能超过 ${limits.greeting} 字。`;
   if (home.headline.trim().length > limits.headline)
@@ -222,6 +225,7 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
   const [notice, setNotice] = useState("");
   const [pending, startTransition] = useTransition();
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [faviconPickerOpen, setFaviconPickerOpen] = useState(false);
   // 编辑行会增删和排序，用稳定 key 避免受控输入跟随索引错位。
   const [skillKeys, setSkillKeys] = useState(() =>
     initial.homepage.skills.map(() => createClientKey()),
@@ -498,6 +502,27 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
               </span>
               {errors.avatarUrl ? (
                 <span className="field-error">{errors.avatarUrl}</span>
+              ) : null}
+            </div>
+            <div className="field">
+              <span className="field-label">站点图标（浏览器标签页）</span>
+              <span className="avatar-row">
+                <input
+                  className={`input${errors.faviconUrl ? " invalid" : ""}`}
+                  onChange={(event) => update("faviconUrl", event.target.value)}
+                  placeholder="https://…/favicon.png"
+                  value={settings.faviconUrl || ""}
+                />
+                <button
+                  className="button secondary"
+                  onClick={() => setFaviconPickerOpen(true)}
+                  type="button"
+                >
+                  上传
+                </button>
+              </span>
+              {errors.faviconUrl ? (
+                <span className="field-error">{errors.faviconUrl}</span>
               ) : null}
             </div>
             <label className="field">
@@ -1028,6 +1053,16 @@ export function SettingsForm({ initial }: { initial: SiteSettings }) {
             setAvatarPickerOpen(false);
           }}
           title="上传或选择头像"
+        />
+      ) : null}
+      {faviconPickerOpen ? (
+        <MediaPickerModal
+          onClose={() => setFaviconPickerOpen(false)}
+          onSelect={(asset) => {
+            update("faviconUrl", asset.url);
+            setFaviconPickerOpen(false);
+          }}
+          title="上传或选择站点图标"
         />
       ) : null}
     </div>

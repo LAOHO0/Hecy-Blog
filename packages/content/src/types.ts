@@ -117,6 +117,8 @@ export type SiteSettings = {
   tagline: string;
   bio: string;
   avatarUrl?: string;
+  /** 浏览器标签页图标；空则用站点内置默认。 */
+  faviconUrl?: string;
   socialLinks: { label: string; url: string }[];
   navigation: { label: string; href: string }[];
   footerText: string;

@@ -164,7 +164,7 @@ export function ContentEditor({
   const [slugEdited, setSlugEdited] = useState(Boolean(initial));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [bodyView, setBodyView] = useState<"write" | "split" | "preview">(
-    "split",
+    "write",
   );
   const [mediaOpen, setMediaOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -241,6 +241,22 @@ export function ContentEditor({
       start: start + snippet.length,
       end: start + snippet.length,
     }));
+  }
+
+  /** 把选中的整块行包进前后包裹语法（如 ::: center 容器）。 */
+  function wrapLines(before: string, after: string) {
+    applyBodyEdit((value, start, end) => {
+      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+      const found = value.indexOf("\n", end);
+      const lineEnd = found === -1 ? value.length : found;
+      const block = value.slice(lineStart, lineEnd);
+      const wrapped = `${before}${block}\n${after}`;
+      return {
+        value: value.slice(0, lineStart) + wrapped + value.slice(lineEnd),
+        start: lineStart,
+        end: lineStart + wrapped.length,
+      };
+    });
   }
 
   function insertImage(asset: MediaAsset) {
@@ -834,6 +850,14 @@ export function ContentEditor({
                 <span aria-hidden="true" className="md-tool-sep" />
                 <button
                   className="md-tool"
+                  onClick={() => wrapLines("::: center\n", "\n:::")}
+                  title="居中（::: center 容器）"
+                  type="button"
+                >
+                  居中
+                </button>
+                <button
+                  className="md-tool"
                   onClick={() => prefixLines("> ")}
                   title="引用"
                   type="button"
@@ -928,7 +952,9 @@ export function ContentEditor({
               </div>
             </div>
             <p className="field-help">
-              支持标题、段落、列表、引用、代码块、表格、加粗、斜体、删除线、链接、图片和行尾两空格换行；工具栏可快速插入，右侧实时预览与前台一致。
+              支持标题、段落、列表、引用、代码块、表格、加粗、斜体、删除线、链接、图片和行尾两空格换行；图片地址后可加「=宽x高」指定显示尺寸（如
+              =480x 只限宽），选中内容用「居中」按钮包进 ::: center
+              容器实现居中；工具栏可快速插入，预览与前台一致。
             </p>
           </FieldGroup>
 

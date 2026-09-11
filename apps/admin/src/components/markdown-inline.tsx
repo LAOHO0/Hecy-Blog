@@ -33,7 +33,15 @@ export function InlineNodes({ tokens }: { tokens: MarkdownInline[] }) {
               </a>
             );
           case "image":
-            return <img key={key} alt={token.alt} src={token.url} />;
+            return (
+              <img
+                key={key}
+                alt={token.alt}
+                height={token.height}
+                src={token.url}
+                width={token.width}
+              />
+            );
           default:
             return <span key={key}>{token.value}</span>;
         }
