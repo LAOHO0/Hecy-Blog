@@ -3,6 +3,7 @@
   "files": {
     "includes": [
       "**",
+      "!**/public/vditor/**",
       "!**/.next/**",
       "!**/out/**",
       "!**/node_modules/**",

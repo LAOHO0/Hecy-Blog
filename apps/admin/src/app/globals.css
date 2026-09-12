@@ -2587,3 +2587,20 @@ kbd {
   line-height: 21px;
   padding-left: 50px;
 }
+
+/* Vditor 所见即所得编辑器：工具行与上传提示 */
+.vditor-toolbar-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.vditor-uploading-tip {
+  background: var(--warning-bg);
+  border-left: 2px solid var(--warning);
+  color: var(--warning);
+  font-size: 11px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+}

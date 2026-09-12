@@ -6,12 +6,20 @@ import type {
   MediaAsset,
   ProductStatus,
 } from "@hecy/content/types";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Icon } from "@/components/icon";
 import { MarkdownView } from "@/components/markdown-view";
 import { MediaPickerModal } from "@/components/media-picker";
+import type { VditorApi } from "@/components/vditor-editor";
+
+const VditorEditor = dynamic(
+  () => import("@/components/vditor-editor").then((m) => m.VditorEditor),
+  { ssr: false },
+);
+
 import { statusClass, statusLabels, typeLabels } from "@/lib/presentation";
 
 type EditorData = {
@@ -163,13 +171,10 @@ export function ContentEditor({
   // 新建时 slug 跟随标题自动生成；用户手动改过后就不再覆盖。
   const [slugEdited, setSlugEdited] = useState(Boolean(initial));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [bodyView, setBodyView] = useState<"write" | "split" | "preview">(
-    "write",
-  );
+  const [bodyView, setBodyView] = useState<"write" | "preview">("write");
+  const vditorApiRef = useRef<VditorApi | null>(null);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
-  const gutterRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -184,142 +189,8 @@ export function ContentEditor({
     setData((current) => ({ ...current, [key]: value }));
   }
 
-  /** 基于当前选区改写正文，并在渲染后恢复焦点和选区。 */
-  function applyBodyEdit(
-    transform: (
-      value: string,
-      start: number,
-      end: number,
-    ) => { value: string; start: number; end: number },
-  ) {
-    const element = bodyRef.current;
-    if (!element) return;
-    const next = transform(
-      element.value,
-      element.selectionStart,
-      element.selectionEnd,
-    );
-    update("body", next.value);
-    scheduleBodySnapshot();
-    requestAnimationFrame(() => {
-      element.focus();
-      element.setSelectionRange(next.start, next.end);
-    });
-  }
-
-  // ===== 正文撤销/重做：textarea 受控后原生 undo 失效，自建快照栈 =====
-  const bodyHistoryRef = useRef<{ stack: string[]; index: number }>({
-    stack: [],
-    index: -1,
-  });
-  const bodySnapshotTimerRef = useRef<number | null>(null);
-
-  function snapshotBodyNow() {
-    const history = bodyHistoryRef.current;
-    const value = bodyRef.current?.value ?? data.body;
-    if (history.stack[history.index] === value) return;
-    history.stack = history.stack.slice(0, history.index + 1);
-    history.stack.push(value);
-    if (history.stack.length > 100) history.stack.shift();
-    history.index = history.stack.length - 1;
-  }
-
-  /** 输入/工具栏操作后延迟合并快照，避免每个字符占一档。 */
-  function scheduleBodySnapshot() {
-    if (bodySnapshotTimerRef.current) {
-      window.clearTimeout(bodySnapshotTimerRef.current);
-    }
-    bodySnapshotTimerRef.current = window.setTimeout(snapshotBodyNow, 400);
-  }
-
-  function setBodyValue(value: string) {
-    update("body", value);
-    requestAnimationFrame(() => {
-      const element = bodyRef.current;
-      if (!element) return;
-      element.focus();
-      element.setSelectionRange(value.length, value.length);
-    });
-  }
-
-  function undoBody() {
-    snapshotBodyNow();
-    const history = bodyHistoryRef.current;
-    if (history.index <= 0) return;
-    history.index -= 1;
-    setBodyValue(history.stack[history.index]);
-  }
-
-  function redoBody() {
-    const history = bodyHistoryRef.current;
-    if (history.index >= history.stack.length - 1) return;
-    history.index += 1;
-    setBodyValue(history.stack[history.index]);
-  }
-
-  function clearBody() {
-    if (!data.body) return;
-    if (!window.confirm("确定清空正文吗？可用撤销恢复。")) return;
-    snapshotBodyNow();
-    setBodyValue("");
-  }
-
-  function wrapSelection(before: string, after: string, placeholder: string) {
-    applyBodyEdit((value, start, end) => {
-      const selected = value.slice(start, end) || placeholder;
-      return {
-        value:
-          value.slice(0, start) + before + selected + after + value.slice(end),
-        start: start + before.length,
-        end: start + before.length + selected.length,
-      };
-    });
-  }
-
-  function prefixLines(prefix: string) {
-    applyBodyEdit((value, start, end) => {
-      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-      const found = value.indexOf("\n", end);
-      const lineEnd = found === -1 ? value.length : found;
-      const block = value.slice(lineStart, lineEnd);
-      const prefixed = block
-        .split("\n")
-        .map((line) => (line.trim() ? prefix + line : line))
-        .join("\n");
-      return {
-        value: value.slice(0, lineStart) + prefixed + value.slice(lineEnd),
-        start: lineStart,
-        end: lineStart + prefixed.length,
-      };
-    });
-  }
-
-  function insertSnippet(snippet: string) {
-    applyBodyEdit((value, start, end) => ({
-      value: value.slice(0, start) + snippet + value.slice(end),
-      start: start + snippet.length,
-      end: start + snippet.length,
-    }));
-  }
-
-  /** 把选中的整块行包进前后包裹语法（如 ::: center 容器）。 */
-  function wrapLines(before: string, after: string) {
-    applyBodyEdit((value, start, end) => {
-      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-      const found = value.indexOf("\n", end);
-      const lineEnd = found === -1 ? value.length : found;
-      const block = value.slice(lineStart, lineEnd);
-      const wrapped = `${before}${block}\n${after}`;
-      return {
-        value: value.slice(0, lineStart) + wrapped + value.slice(lineEnd),
-        start: lineStart,
-        end: lineStart + wrapped.length,
-      };
-    });
-  }
-
   function insertImage(asset: MediaAsset) {
-    insertSnippet(
+    vditorApiRef.current?.insertValue(
       `![${asset.alt || asset.key.split("/").at(-1) || "图片"}](${asset.url})\n`,
     );
     setMediaOpen(false);
@@ -852,165 +723,22 @@ export function ContentEditor({
             </FieldGroup>
           ) : null}
 
-          <FieldGroup title="Markdown / MDX 正文（安全子集）">
+          <FieldGroup title="正文（所见即所得）">
             <div
               className={`body-editor-shell${fullscreen ? " fullscreen" : ""}`}
             >
-              <div className="md-toolbar">
+              <div className="vditor-toolbar-row">
                 <button
-                  className="md-tool"
-                  onClick={() => wrapSelection("**", "**", "加粗文字")}
-                  title="加粗"
-                  type="button"
-                >
-                  <strong>B</strong>
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => wrapSelection("*", "*", "斜体文字")}
-                  title="斜体"
-                  type="button"
-                >
-                  <em>I</em>
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => wrapSelection("~~", "~~", "删除文字")}
-                  title="删除线"
-                  type="button"
-                >
-                  <del>S</del>
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => wrapSelection("`", "`", "代码")}
-                  title="行内代码"
-                  type="button"
-                >
-                  {"</>"}
-                </button>
-                <span aria-hidden="true" className="md-tool-sep" />
-                <button
-                  className="md-tool"
-                  onClick={() => prefixLines("## ")}
-                  title="二级标题"
-                  type="button"
-                >
-                  H2
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => prefixLines("### ")}
-                  title="三级标题"
-                  type="button"
-                >
-                  H3
-                </button>
-                <span aria-hidden="true" className="md-tool-sep" />
-                <button
-                  className="md-tool"
-                  onClick={() => prefixLines("- ")}
-                  title="无序列表"
-                  type="button"
-                >
-                  <Icon name="list-ul" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => prefixLines("1. ")}
-                  title="有序列表"
-                  type="button"
-                >
-                  <Icon name="list-ol" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => prefixLines("> ")}
-                  title="引用"
-                  type="button"
-                >
-                  <Icon name="quote" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => wrapLines("::: center\n", "\n:::")}
-                  title="居中（::: center 容器）"
-                  type="button"
-                >
-                  <Icon name="align-center" />
-                </button>
-                <span aria-hidden="true" className="md-tool-sep" />
-                <button
-                  className="md-tool"
-                  onClick={() => wrapSelection("[", "](https://)", "链接文字")}
-                  title="链接"
-                  type="button"
-                >
-                  <Icon name="link" />
-                </button>
-                <button
-                  className="md-tool"
+                  className="button secondary"
                   onClick={() => setMediaOpen(true)}
-                  title="从媒体库插入图片"
                   type="button"
                 >
                   <Icon name="image" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() =>
-                    insertSnippet(
-                      "\n| 列一 | 列二 | 列三 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n",
-                    )
-                  }
-                  title="插入表格"
-                  type="button"
-                >
-                  <Icon name="table" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => insertSnippet("\n---\n")}
-                  title="水平线"
-                  type="button"
-                >
-                  <Icon name="minus" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={() => insertSnippet("\n```js\n// 代码\n```\n")}
-                  title="代码块"
-                  type="button"
-                >
-                  <Icon name="code" />
+                  从媒体库插入图片
                 </button>
                 <span className="md-toolbar-spacer" />
-                <button
-                  className="md-tool"
-                  onClick={undoBody}
-                  title="撤销 (Ctrl+Z)"
-                  type="button"
-                >
-                  <Icon name="restore" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={redoBody}
-                  title="重做 (Ctrl+Y)"
-                  type="button"
-                >
-                  <Icon name="redo" />
-                </button>
-                <button
-                  className="md-tool"
-                  onClick={clearBody}
-                  title="清空正文"
-                  type="button"
-                >
-                  <Icon name="trash" />
-                </button>
                 <div className="md-view-switch">
-                  {(["write", "split", "preview"] as const).map((mode) => (
+                  {(["write", "preview"] as const).map((mode) => (
                     <button
                       aria-pressed={bodyView === mode}
                       className={`md-tool${bodyView === mode ? " active" : ""}`}
@@ -1018,11 +746,7 @@ export function ContentEditor({
                       onClick={() => setBodyView(mode)}
                       type="button"
                     >
-                      {mode === "write"
-                        ? "编写"
-                        : mode === "split"
-                          ? "分屏"
-                          : "预览"}
+                      {mode === "write" ? "编辑" : "预览"}
                     </button>
                   ))}
                 </div>
@@ -1032,59 +756,28 @@ export function ContentEditor({
                   title={fullscreen ? "退出全屏（Esc）" : "全屏编辑"}
                   type="button"
                 >
-                  <Icon name="eye" />
+                  <Icon name="fullscreen" />
                 </button>
               </div>
-              <div className={`body-editor ${bodyView}`}>
-                {bodyView !== "preview" ? (
-                  <div aria-hidden="true" className="md-gutter" ref={gutterRef}>
-                    {Array.from(
-                      { length: Math.max(data.body.split("\n").length, 1) },
-                      (_, i) => (
-                        // biome-ignore lint/suspicious/noArrayIndexKey: 行号就是序号本身，列表顺序固定
-                        <span key={i}>{i + 1}</span>
-                      ),
-                    )}
-                  </div>
-                ) : null}
-                <textarea
-                  className="textarea mdx-input"
-                  onChange={(event) => {
-                    update("body", event.target.value);
-                    scheduleBodySnapshot();
+              {bodyView === "write" ? (
+                <VditorEditor
+                  minHeight={fullscreen ? 620 : 460}
+                  onChange={(value) => update("body", value)}
+                  onReady={(api) => {
+                    vditorApiRef.current = api;
                   }}
-                  onKeyDown={(event) => {
-                    if (!(event.ctrlKey || event.metaKey)) return;
-                    const key = event.key.toLowerCase();
-                    if (key === "z" && !event.shiftKey) {
-                      event.preventDefault();
-                      undoBody();
-                    } else if (key === "y" || (key === "z" && event.shiftKey)) {
-                      event.preventDefault();
-                      redoBody();
-                    }
-                  }}
-                  onScroll={(event) => {
-                    if (gutterRef.current) {
-                      gutterRef.current.scrollTop =
-                        event.currentTarget.scrollTop;
-                    }
-                  }}
-                  placeholder="# 从这里开始写作…"
-                  ref={bodyRef}
                   value={data.body}
                 />
-                {bodyView !== "write" ? (
-                  <div className="body-preview">
-                    <MarkdownView source={data.body} />
-                  </div>
-                ) : null}
-              </div>
+              ) : (
+                <div className="body-preview">
+                  <MarkdownView source={data.body} />
+                </div>
+              )}
             </div>
             <p className="field-help">
-              支持标题、段落、列表、引用、代码块、表格、加粗、斜体、删除线、链接、图片和行尾两空格换行；图片地址后可加「=宽x高」指定显示尺寸（如
-              =480x 只限宽），选中内容用「居中」按钮包进 ::: center
-              容器实现居中；工具栏可快速插入，预览与前台一致。
+              粘贴或拖拽图片会自动上传到媒体库并插入正文，也可从媒体库选择已上传的图片；图片地址后可加「=宽x高」指定显示尺寸（如
+              =480x 只限宽）。右下角可切换 Markdown
+              源码模式；预览与前台渲染一致。
             </p>
           </FieldGroup>
 
