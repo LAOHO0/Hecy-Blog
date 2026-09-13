@@ -4,6 +4,7 @@
     "includes": [
       "**",
       "!**/public/vditor/**",
+      "!**/data/**",
       "!**/.next/**",
       "!**/out/**",
       "!**/node_modules/**",

@@ -21,6 +21,7 @@ import type {
 import type { ContentInput } from "@hecy/content/validation";
 import { and, desc, eq, max, ne, or } from "drizzle-orm";
 import { getDatabase } from "./db";
+import { loadDevStore, saveDevStore } from "./dev-persist";
 
 export async function getMediaById(id: string): Promise<MediaAsset | null> {
   const db = getDatabase();
@@ -67,33 +68,72 @@ const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 const globalForStore = globalThis as unknown as {
   hecyMemory?: MemoryState;
+  hecyDevAutosaveStarted?: boolean;
+  hecyLastSnapshot?: string;
 };
 
 function getMemory(): MemoryState {
   if (!globalForStore.hecyMemory) {
-    globalForStore.hecyMemory = {
-      content: clone(seedContent),
-      versions: [],
-      builds: [
-        {
-          id: "build-demo-1",
-          status: "success",
-          commitSha: "demo-seed",
-          finishedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      media: [],
-      settings: clone(defaultSettings),
-      redirects: {},
-    };
+    const persisted = loadDevStore<MemoryState>();
+    if (
+      persisted &&
+      Array.isArray(persisted.content) &&
+      Array.isArray(persisted.media) &&
+      persisted.settings
+    ) {
+      // 本地开发快照优先：dev 进程重启后恢复上次的内容与设置。
+      globalForStore.hecyMemory = persisted;
+    } else {
+      globalForStore.hecyMemory = {
+        content: clone(seedContent),
+        versions: [],
+        builds: [
+          {
+            id: "build-demo-1",
+            status: "success",
+            commitSha: "demo-seed",
+            finishedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        media: [],
+        settings: clone(defaultSettings),
+        redirects: {},
+      };
+    }
   }
   // Hot reloads can retain a state object created by an older module version.
   // Normalize it so slug redirects remain safe during development.
   if (!globalForStore.hecyMemory.redirects) {
     globalForStore.hecyMemory.redirects = {};
   }
+  startDevStoreAutosave();
   return globalForStore.hecyMemory;
+}
+
+/**
+ * 内存模式快照：每 3 秒对比一次，有变化才写盘。进程被杀或重启后，
+ * getMemory 会从 data/dev-store.json 恢复，本地写作内容不再丢失。
+ * 数据库模式与测试环境不启用。
+ */
+function startDevStoreAutosave() {
+  if (globalForStore.hecyDevAutosaveStarted) return;
+  globalForStore.hecyDevAutosaveStarted = true;
+  if (process.env.VITEST || process.env.NODE_ENV === "test") return;
+  if (getDatabase()) return;
+  const timer = setInterval(() => {
+    try {
+      const state = globalForStore.hecyMemory;
+      if (!state) return;
+      const next = JSON.stringify(state);
+      if (next === globalForStore.hecyLastSnapshot) return;
+      globalForStore.hecyLastSnapshot = next;
+      saveDevStore(state);
+    } catch {
+      // 快照尽力而为，任何异常不影响内存中的正常读写。
+    }
+  }, 3000);
+  timer.unref?.();
 }
 
 async function assertSlugAvailable(
