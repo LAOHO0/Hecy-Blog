@@ -18,7 +18,7 @@ type VditorEditorProps = {
 
 /**
  * Vditor 所见即所得编辑器：粘贴 / 拖拽 / 工具栏上传的图片
- * 统一走后台 /api/media/upload（本地存储或 S3 由后台决定），
+ * 按存储驱动分流：local 直传后台，s3 走预签名直传对象存储。
  * 上传成功后以标准 Markdown 图片语法插入正文。
  */
 export function VditorEditor({
@@ -47,10 +47,71 @@ export function VditorEditor({
     let destroyed = false;
     let instance: VditorType | null = null;
 
-    /** 上传成功返回 URL，失败返回错误信息。 */
+    /**
+     * 上传成功返回 URL，失败返回错误信息。
+     * 先探测预签名接口的存储驱动：local 直传后台；s3 走预签名
+     * PUT（需在对象存储上配置 CORS，与媒体库页面要求一致）。
+     */
     async function uploadImage(
       file: File,
     ): Promise<{ url?: string; error?: string }> {
+      const presignResponse = await fetch("/api/media/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          size: file.size,
+        }),
+      });
+      const presign = (await presignResponse.json().catch(() => ({}))) as {
+        driver?: "local" | "s3";
+        configured?: boolean;
+        uploadUrl?: string;
+        key?: string;
+        publicUrl?: string;
+        message?: string;
+        error?: string;
+      };
+
+      if (presignResponse.ok && presign.driver === "s3") {
+        if (
+          !presign.configured ||
+          !presign.uploadUrl ||
+          !presign.key ||
+          !presign.publicUrl
+        ) {
+          return { error: presign.message || "尚未配置对象存储。" };
+        }
+        const put = await fetch(presign.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!put.ok) {
+          return { error: "对象存储上传失败，请检查 CORS 配置。" };
+        }
+        const save = await fetch("/api/media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: presign.key,
+            url: presign.publicUrl,
+            mimeType: file.type,
+            size: file.size,
+            alt: file.name,
+          }),
+        });
+        const saved = (await save.json().catch(() => ({}))) as {
+          item?: { url: string };
+          error?: string;
+        };
+        if (!save.ok || !saved.item) {
+          return { error: saved.error || "媒体记录保存失败。" };
+        }
+        return { url: saved.item.url };
+      }
+
       const form = new FormData();
       form.append("file", file);
       const response = await fetch("/api/media/upload", {
